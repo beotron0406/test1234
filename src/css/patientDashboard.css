@@ -1,0 +1,113 @@
+/* src/css/patientDashboard.css - Styles for the Patient Dashboard component */
+
+.patient-dashboard {
+  margin-bottom: 3rem;
+}
+
+.profile-section {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--box-shadow);
+}
+
+.profile-section p {
+  margin: 0.5rem 0;
+}
+
+.appointments-section {
+  margin-bottom: 2rem;
+}
+
+.appointment-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.appointment-item {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--box-shadow);
+  position: relative;
+}
+
+/* Status colors for appointments */
+.status-booked {
+  border-left: 4px solid var(--primary-color);
+}
+
+.status-completed {
+  border-left: 4px solid var(--secondary-color);
+}
+
+.status-cancelled {
+  border-left: 4px solid var(--danger-color);
+}
+
+.appointment-date {
+  font-weight: bold;
+  color: var(--primary-dark);
+}
+
+.appointment-doctor {
+  margin-top: 0.25rem;
+}
+
+.appointment-actions {
+  margin-top: 0.5rem;
+}
+
+/* Booking form */
+.booking-form {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--box-shadow);
+}
+
+.booking-form select,
+.booking-form input {
+  width: 100%;
+}
+
+.booking-form-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 1rem;
+}
+
+.history-link {
+  display: block;
+  margin: 1rem 0;
+}
+
+/* Error/Success messages */
+.booking-error {
+  color: var(--danger-color);
+}
+
+.booking-success {
+  color: var(--secondary-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .appointment-item {
+    padding: 0.75rem;
+  }
+  
+  .booking-form-actions {
+    flex-direction: column;
+  }
+  
+  .booking-form-actions button {
+    margin-right: 0;
+    margin-bottom: 0.5rem;
+    width: 100%;
+  }
+}

@@ -1,0 +1,38 @@
+/* src/css/login.css - Styles for the Login component */
+
+.login-container {
+  max-width: 400px;
+  margin: 3rem auto;
+  padding: 2rem;
+  background-color: var(--white);
+  box-shadow: var(--box-shadow);
+  border-radius: var(--border-radius);
+}
+
+.login-title {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.login-form button {
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 1rem;
+}
+
+.login-error {
+  color: var(--danger-color);
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background-color: rgba(231, 76, 60, 0.1);
+  border-radius: var(--border-radius);
+  border-left: 3px solid var(--danger-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .login-container {
+    margin: 1rem auto;
+    padding: 1.5rem;
+  }
+}

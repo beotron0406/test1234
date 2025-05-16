@@ -1,10 +1,11 @@
-// src/components/PatientDashboard.js
+// src/components/PatientDashboard.js (with class names added)
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import axios from 'axios';
+import '../css/index.css'; // Import CSS
 
-// Assume service ports are defined somewhere accessible
+// Service URLs
 const SERVICE_URLS = {
   patient: 'http://localhost:8001/api',
   doctor: 'http://localhost:8002/api',
@@ -12,19 +13,15 @@ const SERVICE_URLS = {
   medicalRecords: 'http://localhost:8007/api',
 };
 
-
 const PatientDashboard = () => {
   const { user, logout } = useUser();
   const navigate = useNavigate();
 
-  // State for fetched data
+  // State variables (unchanged)
   const [patientProfile, setPatientProfile] = useState(null);
   const [appointments, setAppointments] = useState([]);
-  // Removed medicalHistorySummary state
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // General fetch error
-
-  // State for booking functionality
+  const [error, setError] = useState(null);
   const [isBooking, setIsBooking] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -34,7 +31,7 @@ const PatientDashboard = () => {
   const [bookingError, setBookingError] = useState(null);
   const [bookingSuccess, setBookingSuccess] = useState(null);
 
-  // --- Data Fetching using useEffect ---
+  // Data fetching (unchanged)
   useEffect(() => {
     const fetchPatientData = async () => {
       setLoading(true);
@@ -48,15 +45,12 @@ const PatientDashboard = () => {
         setPatientProfile(profileResponse.data);
         console.log('Fetched Patient Profile:', profileResponse.data);
 
-
         // 2. Fetch Patient Appointments
         const appointmentsResponse = await axios.get(`${SERVICE_URLS.appointments}/appointments/`, {
           params: { patient_user_id: patientUserId }
         });
         setAppointments(appointmentsResponse.data);
         console.log('Fetched Appointments:', appointmentsResponse.data);
-
-        // Removed medical history summary fetch from here
 
       } catch (err) {
         console.error('Error fetching patient data:', err);
@@ -80,10 +74,9 @@ const PatientDashboard = () => {
        setLoading(false);
     }
 
-  }, [user, navigate]); // Include navigate in dependency array
+  }, [user, navigate]);
 
-
-  // --- Fetch Doctors for Booking Form ---
+  // Doctor fetching (unchanged)
   useEffect(() => {
     if (isBooking && doctors.length === 0) {
         const fetchDoctors = async () => {
@@ -100,8 +93,7 @@ const PatientDashboard = () => {
     }
   }, [isBooking, doctors.length]);
 
-
-  // --- Handle Booking Action ---
+  // Booking handler (unchanged)
   const handleBookAppointment = async (e) => {
       e.preventDefault();
 
@@ -177,55 +169,49 @@ const PatientDashboard = () => {
       }
   };
 
-  // --- Handle Cancel Appointment (Placeholder) ---
+  // Cancel appointment handler (unchanged)
   const handleCancelAppointment = (appointmentId) => {
-      // In a real app, this would call the Appointment Service PUT/PATCH endpoint
-      // to update the appointment status to 'cancelled'.
       alert(`Cancel functionality not implemented yet for appointment ID: ${appointmentId}`);
       console.log(`Attempted to cancel appointment ID: ${appointmentId}`);
-      // Optional: You might want to visually disable the button or change its text after click
-      // even if it's just an alert, to show the user interaction.
   };
 
-
-  // --- Early Return for Redirection (Must come AFTER Hook calls) ---
+  // Early Return for Redirection (unchanged)
   if (!user || user.user_type !== 'patient') {
     navigate('/login');
     return <div>Redirecting...</div>;
   }
 
-
-  // --- Render Loading/Error States (Must come AFTER Early Returns) ---
+  // Loading and error states
   if (loading) {
-    return <div>Loading Patient Dashboard...</div>;
+    return <div className="loading">Loading Patient Dashboard...</div>;
   }
 
   if (error) {
     return (
-      <div>
+      <div className="container">
         <h2>Error</h2>
-        <p>{error}</p>
+        <p className="error-message">{error}</p>
         <button onClick={logout}>Logout</button>
       </div>
     );
   }
 
-  // --- Render Data and Forms ---
+  // Render Dashboard with added class names
   return (
-    <div>
+    <div className="container patient-dashboard">
       <h2>Patient Dashboard</h2>
 
-      {/* Display Patient Profile */}
+      {/* Profile Section */}
       {patientProfile ? (
-        <div>
+        <div className="profile-section">
           <h3>Your Profile</h3>
-          <p>Name: {patientProfile.first_name} {patientProfile.last_name}</p>
-          <p>Username: {patientProfile.username}</p>
-          <p>Email: {patientProfile.email}</p>
-          <p>Date of Birth: {patientProfile.date_of_birth || 'N/A'}</p>
-          <p>Address: {patientProfile.address || 'N/A'}</p>
-          <p>Phone: {patientProfile.phone_number || 'N/A'}</p>
-          {patientProfile._identity_error && <p style={{color:'orange'}}>Warning: Could not load all identity data: {patientProfile._identity_error}</p>}
+          <p><strong>Name:</strong> {patientProfile.first_name} {patientProfile.last_name}</p>
+          <p><strong>Username:</strong> {patientProfile.username}</p>
+          <p><strong>Email:</strong> {patientProfile.email}</p>
+          <p><strong>Date of Birth:</strong> {patientProfile.date_of_birth || 'N/A'}</p>
+          <p><strong>Address:</strong> {patientProfile.address || 'N/A'}</p>
+          <p><strong>Phone:</strong> {patientProfile.phone_number || 'N/A'}</p>
+          {patientProfile._identity_error && <p className="warning-message">Warning: Could not load all identity data: {patientProfile._identity_error}</p>}
         </div>
       ) : (
         !loading && <p>Could not load profile data.</p>
@@ -233,98 +219,111 @@ const PatientDashboard = () => {
 
       <hr />
 
-      {/* Display Appointments */}
-      <h3>Your Appointments</h3>
-      {appointments.length > 0 ? (
-        <ul>
-          {appointments.map(appointment => (
-            <li key={appointment.id}>
-              <strong>{new Date(appointment.start_time).toLocaleString()}</strong> - {new Date(appointment.end_time).toLocaleString()} ({appointment.status})<br />
-              Doctor: {appointment.doctor ? `${appointment.doctor.first_name} ${appointment.doctor.last_name} (${appointment.doctor.specialization || appointment.doctor.user_type})` : (appointment._doctor_identity_error || 'N/A')}
-               {appointment._patient_identity_error && <p style={{color:'orange', margin:0}}>Warning: Patient identity missing for this appt: {appointment._patient_identity_error}</p>}
-              {appointment._doctor_identity_error && <p style={{color:'orange', margin:0}}>Warning: Doctor identity missing for this appt: {appointment._doctor_identity_error}</p>}
-               {/* Add Cancel button */}
-              {appointment.status === 'booked' && ( // Only show cancel button if status is 'booked'
-                 <button onClick={() => handleCancelAppointment(appointment.id)} style={{ marginLeft: '10px' }}>Cancel</button>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        !loading && <p>No appointments found.</p>
-      )}
+      {/* Appointments Section */}
+      <div className="appointments-section">
+        <h3>Your Appointments</h3>
+        {appointments.length > 0 ? (
+          <ul className="appointment-list">
+            {appointments.map(appointment => (
+              <li key={appointment.id} className={`appointment-item status-${appointment.status}`}>
+                <div className="appointment-date">
+                  {new Date(appointment.start_time).toLocaleString()} - {new Date(appointment.end_time).toLocaleString()} ({appointment.status})
+                </div>
+                <div className="appointment-doctor">
+                  <strong>Doctor:</strong> {appointment.doctor ? `${appointment.doctor.first_name} ${appointment.doctor.last_name} (${appointment.doctor.specialization || appointment.doctor.user_type})` : (appointment._doctor_identity_error || 'N/A')}
+                </div>
+                
+                {appointment._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing for this appt: {appointment._patient_identity_error}</p>}
+                {appointment._doctor_identity_error && <p className="warning-indicator">Warning: Doctor identity missing for this appt: {appointment._doctor_identity_error}</p>}
+                
+                {/* Cancel button */}
+                <div className="appointment-actions">
+                  {appointment.status === 'booked' && (
+                    <button onClick={() => handleCancelAppointment(appointment.id)} className="danger">Cancel</button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          !loading && <p>No appointments found.</p>
+        )}
+      </div>
 
       <hr />
 
-      {/* Medical History Link/Summary */}
-       <h3>Medical History</h3>
-       {/* Removed summary display, add link to detail page */}
-       <button onClick={() => navigate(`/patient/medical-history`)}>View Detailed Medical History</button>
-
+      {/* Medical History Link */}
+      <div className="history-section">
+        <h3>Medical History</h3>
+        <button onClick={() => navigate(`/patient/medical-history`)} className="history-link">View Detailed Medical History</button>
+      </div>
 
       <hr />
 
       {/* Book Appointment Section */}
-      <h3>Book New Appointment</h3>
-      {!isBooking ? (
-        <button onClick={() => setIsBooking(true)}>Book Appointment</button>
-      ) : (
-        <div>
-          <form onSubmit={handleBookAppointment}>
-            <div>
-              <label htmlFor="doctor">Select Doctor:</label>
-              {doctors.length > 0 ? (
-                 <select id="doctor" value={selectedDoctorId} onChange={(e) => setSelectedDoctorId(e.target.value)} required>
-                   <option value="">-- Select a Doctor --</option>
-                   {doctors.map(doctor => (
-                     <option key={doctor.user_id} value={doctor.user_id}>
-                       {doctor.first_name} {doctor.last_name} ({doctor.specialization || 'N/A'})
-                     </option>
-                   ))}
-                 </select>
-              ) : (
-                 // Display loading or error state for doctors fetch
-                 bookingError && bookingError.includes('doctors list') ?
-                    <p style={{color:'red'}}>{bookingError}</p> :
-                    <p>Loading doctors...</p>
-              )}
-            </div>
-            <div>
-               <label htmlFor="appointmentDate">Date:</label>
-               <input
-                 type="date"
-                 id="appointmentDate"
-                 value={appointmentDate}
-                 onChange={(e) => setAppointmentDate(e.target.value)}
-                 required
-               />
-            </div>
-             <div>
-               <label htmlFor="appointmentTime">Time:</label>
-               <input
-                 type="time"
-                 id="appointmentTime"
-                 value={appointmentTime}
-                 onChange={(e) => setAppointmentTime(e.target.value)}
-                 required
-               />
-            </div>
-            {bookingError && <div style={{ color: 'red' }}>{bookingError}</div>}
-            {bookingSuccess && <div style={{ color: 'green' }}>{bookingSuccess}</div>}
+      <div className="booking-section">
+        <h3>Book New Appointment</h3>
+        {!isBooking ? (
+          <button onClick={() => setIsBooking(true)}>Book Appointment</button>
+        ) : (
+          <div className="booking-form">
+            <form onSubmit={handleBookAppointment}>
+              <div>
+                <label htmlFor="doctor">Select Doctor:</label>
+                {doctors.length > 0 ? (
+                   <select id="doctor" value={selectedDoctorId} onChange={(e) => setSelectedDoctorId(e.target.value)} required>
+                     <option value="">-- Select a Doctor --</option>
+                     {doctors.map(doctor => (
+                       <option key={doctor.user_id} value={doctor.user_id}>
+                         {doctor.first_name} {doctor.last_name} ({doctor.specialization || 'N/A'})
+                       </option>
+                     ))}
+                   </select>
+                ) : (
+                   bookingError && bookingError.includes('doctors list') ?
+                      <p className="error-message">{bookingError}</p> :
+                      <p>Loading doctors...</p>
+                )}
+              </div>
+              <div>
+                 <label htmlFor="appointmentDate">Date:</label>
+                 <input
+                   type="date"
+                   id="appointmentDate"
+                   value={appointmentDate}
+                   onChange={(e) => setAppointmentDate(e.target.value)}
+                   required
+                 />
+              </div>
+              <div>
+                 <label htmlFor="appointmentTime">Time:</label>
+                 <input
+                   type="time"
+                   id="appointmentTime"
+                   value={appointmentTime}
+                   onChange={(e) => setAppointmentTime(e.target.value)}
+                   required
+                 />
+              </div>
+              {bookingError && <div className="booking-error">{bookingError}</div>}
+              {bookingSuccess && <div className="booking-success">{bookingSuccess}</div>}
 
-            <button type="submit" disabled={bookingLoading || doctors.length === 0}> {/* Disable if booking or no doctors loaded */}
-              {bookingLoading ? 'Booking...' : 'Confirm Booking'}
-            </button>
-            <button type="button" onClick={() => setIsBooking(false)} disabled={bookingLoading}>
-              Cancel
-            </button>
-          </form>
-        </div>
-      )}
+              <div className="booking-form-actions">
+                <button type="submit" disabled={bookingLoading || doctors.length === 0}>
+                  {bookingLoading ? 'Booking...' : 'Confirm Booking'}
+                </button>
+                <button type="button" onClick={() => setIsBooking(false)} disabled={bookingLoading} className="danger">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
 
       <hr />
 
-      <button onClick={logout}>Logout</button>
+      <button onClick={logout} className="danger">Logout</button>
     </div>
   );
 };
