@@ -1,10 +1,11 @@
-// src/components/DoctorDashboard.js
+// src/components/DoctorDashboard.js (with CSS applied)
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import axios from 'axios';
+import '../css/index.css'; // Import CSS
 
-// Assume service ports are defined somewhere accessible
+// Service URLs
 const SERVICE_URLS = {
   doctor: 'http://localhost:8002/api', // Doctor Service API base URL
   appointments: 'http://localhost:8004/api', // Appointment Service API base URL
@@ -355,15 +356,15 @@ const DoctorDashboard = () => {
 
   // --- Render Loading/Error States (Must come AFTER Early Returns) ---
   if (loading) {
-    return <div>Loading Doctor Dashboard...</div>;
+    return <div className="loading">Loading Doctor Dashboard...</div>;
   }
 
   if (error) {
     return (
-      <div>
+      <div className="container">
         <h2>Error</h2>
-        <p>{error}</p>
-        <button onClick={logout}>Logout</button>
+        <p className="error-message">{error}</p>
+        <button onClick={logout} className="danger">Logout</button>
       </div>
     );
   }
@@ -373,19 +374,19 @@ const DoctorDashboard = () => {
 
   // --- Render Data and Forms ---
   return (
-    <div>
+    <div className="container doctor-dashboard">
       <h2>Doctor Dashboard</h2>
 
       {/* Display Doctor Profile */}
       {doctorProfile ? (
-        <div>
+        <div className="profile-section">
           <h3>Your Profile</h3>
-          <p>Name: {doctorProfile.first_name} {doctorProfile.last_name}</p>
-          <p>Username: {doctorProfile.username}</p>
-          <p>Email: {doctorProfile.email}</p>
-          <p>Specialization: {doctorProfile.specialization || 'N/A'}</p>
-          <p>License Number: {doctorProfile.license_number || 'N/A'}</p>
-          {doctorProfile._identity_error && <p style={{color:'orange'}}>Warning: Could not load all identity data: {doctorProfile._identity_error}</p>}
+          <p><strong>Name:</strong> {doctorProfile.first_name} {doctorProfile.last_name}</p>
+          <p><strong>Username:</strong> {doctorProfile.username}</p>
+          <p><strong>Email:</strong> {doctorProfile.email}</p>
+          <p><strong>Specialization:</strong> {doctorProfile.specialization || 'N/A'}</p>
+          <p><strong>License Number:</strong> {doctorProfile.license_number || 'N/A'}</p>
+          {doctorProfile._identity_error && <p className="warning-message">Warning: Could not load all identity data: {doctorProfile._identity_error}</p>}
         </div>
       ) : (
         !loading && <p>Could not load profile data.</p> // Only show this if not loading
@@ -394,138 +395,175 @@ const DoctorDashboard = () => {
       <hr />
 
       {/* Display Doctor's Appointments */}
-      <h3>Your Appointments</h3>
-      {appointments.length > 0 ? (
-        <ul>
-          {appointments.map(appointment => (
-            <li key={appointment.id}>
-              {/* Use a more robust date/time formatting library like date-fns or moment.js */}
-              <strong>{new Date(appointment.start_time).toLocaleString()}</strong> - {new Date(appointment.end_time).toLocaleString()} ({appointment.status})<br />
-              Patient: {appointment.patient ? `${appointment.patient.first_name} ${appointment.patient.last_name} (${appointment.patient.user_type})` : (appointment._patient_identity_error || 'N/A')}
-               {/* Add buttons for actions related to this patient/appointment */}
-               {appointment.patient_user_id && (
-                   <button onClick={() => handleViewPatientHistory(appointment.patient_user_id)} style={{ marginLeft: '10px' }}>View Patient History</button>
-               )}
-               {appointment.patient_user_id && (
-                   <button onClick={() => handleStartWriteReport(appointment.patient_user_id)} style={{ marginLeft: '10px' }}>Write Report</button>
-               )}
-               {appointment.patient_user_id && (
-                   <button onClick={() => handleStartPrescribing(appointment.patient_user_id)} style={{ marginLeft: '10px' }}>Prescribe Medication</button>
-               )}
-                {appointment.patient_user_id && (
-                   <button onClick={() => handleStartOrderLabTest(appointment.patient_user_id)} style={{ marginLeft: '10px' }}>Order Lab Test</button>
-               )}
-
-
-               {/* Display individual S2S errors if present */}
-               {appointment._patient_identity_error && <p style={{color:'orange', margin:0}}>Warning: Patient identity missing: {appointment._patient_identity_error}</p>}
-              {appointment._doctor_identity_error && <p style={{color:'orange', margin:0}}>Warning: Doctor identity missing: {appointment._doctor_identity_error}</p>}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        !loading && <p>No appointments found.</p> // Only show if not loading
-      )}
+      <div className="appointments-section">
+        <h3>Your Appointments</h3>
+        {appointments.length > 0 ? (
+          <ul className="appointment-list">
+            {appointments.map(appointment => (
+              <li key={appointment.id} className={`appointment-item status-${appointment.status}`}>
+                <div className="appointment-date">
+                  {new Date(appointment.start_time).toLocaleString()} - {new Date(appointment.end_time).toLocaleString()} ({appointment.status})
+                </div>
+                <div className="appointment-patient">
+                  <strong>Patient:</strong> {appointment.patient ? `${appointment.patient.first_name} ${appointment.patient.last_name} (${appointment.patient.user_type})` : (appointment._patient_identity_error || 'N/A')}
+                </div>
+                
+                {/* Action buttons */}
+                <div className="appointment-actions">
+                  {appointment.patient_user_id && (
+                    <>
+                      <button onClick={() => handleViewPatientHistory(appointment.patient_user_id)}>
+                        View Patient History
+                      </button>
+                      <button onClick={() => handleStartWriteReport(appointment.patient_user_id)} className="secondary">
+                        Write Report
+                      </button>
+                      <button onClick={() => handleStartPrescribing(appointment.patient_user_id)} className="secondary">
+                        Prescribe Medication
+                      </button>
+                      <button onClick={() => handleStartOrderLabTest(appointment.patient_user_id)} className="secondary">
+                        Order Lab Test
+                      </button>
+                    </>
+                  )}
+                </div>
+                
+                {/* Display errors if present */}
+                {appointment._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing: {appointment._patient_identity_error}</p>}
+                {appointment._doctor_identity_error && <p className="warning-indicator">Warning: Doctor identity missing: {appointment._doctor_identity_error}</p>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          !loading && <p>No appointments found.</p> // Only show if not loading
+        )}
+      </div>
 
       <hr />
 
       {/* Conditional rendering of forms */}
       {isWritingReport && (
-          <section>
+          <div className="report-section">
               <h3>Write Medical Report</h3>
-               {/* Pass the patient name to the form display */}
-              <h4>Report for Patient: {appointments.find(appt => appt.patient_user_id === reportPatientId)?.patient?.first_name || 'Loading...'} {appointments.find(appt => appt.patient_user_id === reportPatientId)?.patient?.last_name || ''}</h4>
-              <form onSubmit={handleSubmitReport}>
-                  <input type="hidden" value={reportPatientId} /> {/* Patient ID */}
-                  <div>
-                      <label htmlFor="reportTitle">Title:</label>
-                      <input type="text" id="reportTitle" value={reportTitle} onChange={(e) => setReportTitle(e.target.value)} required style={{ width: '80%' }} />
-                  </div>
-                  <div>
-                      <label htmlFor="reportContent">Content:</label>
-                      <textarea id="reportContent" value={reportContent} onChange={(e) => setReportContent(e.target.value)} required rows={10} style={{ width: '80%' }}></textarea>
-                  </div>
-                  {reportError && <div style={{ color: 'red' }}>{reportError}</div>}
-                  {reportSuccess && <div style={{ color: 'green' }}>{reportSuccess}</div>}
-                  <button type="submit" disabled={reportLoading}>{reportLoading ? 'Saving...' : 'Save Report'}</button>
-                  <button type="button" onClick={() => setIsWritingReport(false)} disabled={reportLoading}>Cancel</button>
-              </form>
-          </section>
+              {/* Pass the patient name to the form display */}
+              <div className="report-form">
+                <h4>Report for Patient: {appointments.find(appt => appt.patient_user_id === reportPatientId)?.patient?.first_name || 'Loading...'} {appointments.find(appt => appt.patient_user_id === reportPatientId)?.patient?.last_name || ''}</h4>
+                <form onSubmit={handleSubmitReport}>
+                    <input type="hidden" value={reportPatientId} /> {/* Patient ID */}
+                    <div>
+                        <label htmlFor="reportTitle">Title:</label>
+                        <input type="text" id="reportTitle" value={reportTitle} onChange={(e) => setReportTitle(e.target.value)} required />
+                    </div>
+                    <div>
+                        <label htmlFor="reportContent">Content:</label>
+                        <textarea id="reportContent" value={reportContent} onChange={(e) => setReportContent(e.target.value)} required rows={10}></textarea>
+                    </div>
+                    {reportError && <div className="form-error">{reportError}</div>}
+                    {reportSuccess && <div className="form-success">{reportSuccess}</div>}
+                    
+                    <div className="report-form-actions">
+                      <button type="submit" disabled={reportLoading}>
+                        {reportLoading ? 'Saving...' : 'Save Report'}
+                      </button>
+                      <button type="button" onClick={() => setIsWritingReport(false)} disabled={reportLoading} className="danger">
+                        Cancel
+                      </button>
+                    </div>
+                </form>
+              </div>
+          </div>
       )}
 
-       {isPrescribing && (
-           <section>
-               <h3>Prescribe Medication</h3>
-               {/* Pass the patient name to the form display */}
-               <h4>Prescription for Patient: {appointments.find(appt => appt.patient_user_id === prescribePatientId)?.patient?.first_name || 'Loading...'} {appointments.find(appt => appt.patient_user_id === prescribePatientId)?.patient?.last_name || ''}</h4>
-               <form onSubmit={handleSubmitPrescription}>
-                   <input type="hidden" value={prescribePatientId} /> {/* Patient ID */}
-                   <div>
-                       <label htmlFor="medicationName">Medication Name:</label>
-                       <input type="text" id="medicationName" value={medicationName} onChange={(e) => setMedicationName(e.target.value)} required style={{ width: '80%' }} />
-                   </div>
-                   <div>
-                       <label htmlFor="dosage">Dosage:</label>
-                       <input type="text" id="dosage" value={dosage} onChange={(e) => setDosage(e.target.value)} required style={{ width: '80%' }} />
-                   </div>
+      {isPrescribing && (
+          <div className="prescription-section">
+              <h3>Prescribe Medication</h3>
+              {/* Pass the patient name to the form display */}
+              <div className="prescription-form">
+                <h4>Prescription for Patient: {appointments.find(appt => appt.patient_user_id === prescribePatientId)?.patient?.first_name || 'Loading...'} {appointments.find(appt => appt.patient_user_id === prescribePatientId)?.patient?.last_name || ''}</h4>
+                <form onSubmit={handleSubmitPrescription}>
+                    <input type="hidden" value={prescribePatientId} /> {/* Patient ID */}
                     <div>
-                       <label htmlFor="frequency">Frequency:</label>
-                       <input type="text" id="frequency" value={frequency} onChange={(e) => setFrequency(e.target.value)} required style={{ width: '80%' }} />
-                   </div>
-                   <div>
-                       <label htmlFor="duration">Duration:</label>
-                       <input type="text" id="duration" value={duration} onChange={(e) => setDuration(e.target.value)} required style={{ width: '80%' }} />
-                   </div>
+                        <label htmlFor="medicationName">Medication Name:</label>
+                        <input type="text" id="medicationName" value={medicationName} onChange={(e) => setMedicationName(e.target.value)} required />
+                    </div>
                     <div>
-                       <label htmlFor="prescriptionNotes">Notes (Optional):</label>
-                       <textarea id="prescriptionNotes" value={prescriptionNotes} onChange={(e) => setPrescriptionNotes(e.target.value)} rows={3} style={{ width: '80%' }}></textarea>
-                   </div>
-                   {prescribingError && <div style={{ color: 'red' }}>{prescribingError}</div>}
-                   {prescribingSuccess && <div style={{ color: 'green' }}>{prescribingSuccess}</div>}
-                   <button type="submit" disabled={prescribingLoading}>{prescribingLoading ? 'Prescribing...' : 'Save Prescription'}</button>
-                   <button type="button" onClick={() => setIsPrescribing(false)} disabled={prescribingLoading}>Cancel</button>
-               </form>
-           </section>
-       )}
-
-       {isOrderingLabTest && (
-           <section>
-               <h3>Order Lab Test</h3>
-               {/* Pass the patient name to the form display */}
-               <h4>Order Lab Test for Patient: {appointments.find(appt => appt.patient_user_id === orderPatientId)?.patient?.first_name || 'Loading...'} {appointments.find(appt => appt.patient_user_id === orderPatientId)?.patient?.last_name || ''}</h4>
-               <form onSubmit={handleSubmitOrderLabTest}>
-                   <input type="hidden" value={orderPatientId} /> {/* Patient ID */}
-                   <div>
-                       <label htmlFor="testType">Test Type:</label>
-                       <input type="text" id="testType" value={testType} onChange={(e) => setTestType(e.target.value)} required style={{ width: '80%' }} placeholder='e.g., Complete Blood Count, Urinalysis' />
-                   </div>
+                        <label htmlFor="dosage">Dosage:</label>
+                        <input type="text" id="dosage" value={dosage} onChange={(e) => setDosage(e.target.value)} required />
+                    </div>
                     <div>
-                       <label htmlFor="orderNotes">Notes (Optional):</label>
-                       <textarea id="orderNotes" value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} rows={3} style={{ width: '80%' }} placeholder='Doctor notes for the lab'></textarea>
-                   </div>
-                   {orderingError && <div style={{ color: 'red' }}>{orderingError}</div>}
-                   {orderingSuccess && <div style={{ color: 'green' }}>{orderingSuccess}</div>}
-                   <button type="submit" disabled={orderingLoading}>{orderingLoading ? 'Ordering...' : 'Create Order'}</button>
-                   <button type="button" onClick={() => setIsOrderingLabTest(false)} disabled={orderingLoading}>Cancel</button>
-               </form>
-           </section>
-       )}
+                        <label htmlFor="frequency">Frequency:</label>
+                        <input type="text" id="frequency" value={frequency} onChange={(e) => setFrequency(e.target.value)} required />
+                    </div>
+                    <div>
+                        <label htmlFor="duration">Duration:</label>
+                        <input type="text" id="duration" value={duration} onChange={(e) => setDuration(e.target.value)} required />
+                    </div>
+                    <div>
+                        <label htmlFor="prescriptionNotes">Notes (Optional):</label>
+                        <textarea id="prescriptionNotes" value={prescriptionNotes} onChange={(e) => setPrescriptionNotes(e.target.value)} rows={3}></textarea>
+                    </div>
+                    
+                    {prescribingError && <div className="form-error">{prescribingError}</div>}
+                    {prescribingSuccess && <div className="form-success">{prescribingSuccess}</div>}
+                    
+                    <div className="prescription-form-actions">
+                      <button type="submit" disabled={prescribingLoading}>
+                        {prescribingLoading ? 'Prescribing...' : 'Save Prescription'}
+                      </button>
+                      <button type="button" onClick={() => setIsPrescribing(false)} disabled={prescribingLoading} className="danger">
+                        Cancel
+                      </button>
+                    </div>
+                </form>
+              </div>
+          </div>
+      )}
 
+      {isOrderingLabTest && (
+          <div className="lab-order-section">
+              <h3>Order Lab Test</h3>
+              {/* Pass the patient name to the form display */}
+              <div className="prescription-form">
+                <h4>Order Lab Test for Patient: {appointments.find(appt => appt.patient_user_id === orderPatientId)?.patient?.first_name || 'Loading...'} {appointments.find(appt => appt.patient_user_id === orderPatientId)?.patient?.last_name || ''}</h4>
+                <form onSubmit={handleSubmitOrderLabTest}>
+                    <input type="hidden" value={orderPatientId} /> {/* Patient ID */}
+                    <div>
+                        <label htmlFor="testType">Test Type:</label>
+                        <input type="text" id="testType" value={testType} onChange={(e) => setTestType(e.target.value)} required placeholder='e.g., Complete Blood Count, Urinalysis' />
+                    </div>
+                    <div>
+                        <label htmlFor="orderNotes">Notes (Optional):</label>
+                        <textarea id="orderNotes" value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} rows={3} placeholder='Doctor notes for the lab'></textarea>
+                    </div>
+                    
+                    {orderingError && <div className="form-error">{orderingError}</div>}
+                    {orderingSuccess && <div className="form-success">{orderingSuccess}</div>}
+                    
+                    <div className="prescription-form-actions">
+                      <button type="submit" disabled={orderingLoading}>
+                        {orderingLoading ? 'Ordering...' : 'Create Order'}
+                      </button>
+                      <button type="button" onClick={() => setIsOrderingLabTest(false)} disabled={orderingLoading} className="danger">
+                        Cancel
+                      </button>
+                    </div>
+                </form>
+              </div>
+          </div>
+      )}
 
-       {/* Show "Other Functions" only if no form is open */}
-       {!isAnyFormOpen && (
-           <>
-               <hr />
-               <h3>Other Doctor Functions (To Be Implemented)</h3>
-               {/* Example: */}
-               {/* <button>View My Patients</button> */}
-           </>
-       )}
-
+      {/* Show "Other Functions" only if no form is open */}
+      {!isAnyFormOpen && (
+          <div className="other-functions-section">
+              <h3>Other Doctor Functions (To Be Implemented)</h3>
+              {/* Example: */}
+              {/* <button>View My Patients</button> */}
+          </div>
+      )}
 
       <hr />
 
-      <button onClick={logout}>Logout</button>
+      <button onClick={logout} className="danger">Logout</button>
     </div>
   );
 };
