@@ -6,3 +6,7 @@
 @import './patientDashboard.css';
 @import './doctorDashboard.css';
 @import './medicalHistory.css';
+@import './labTechDashboard.css';
+@import './pharmacistDashboard.css';
+@import './nurseDashboard.css';
+@import './adminDashboard.css';

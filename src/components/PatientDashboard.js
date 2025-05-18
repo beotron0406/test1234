@@ -170,10 +170,10 @@ const PatientDashboard = () => {
   };
 
   // Cancel appointment handler (unchanged)
-  const handleCancelAppointment = (appointmentId) => {
-      alert(`Cancel functionality not implemented yet for appointment ID: ${appointmentId}`);
-      console.log(`Attempted to cancel appointment ID: ${appointmentId}`);
-  };
+  // const handleCancelAppointment = (appointmentId) => {
+  //     alert(`Cancel functionality not implemented yet for appointment ID: ${appointmentId}`);
+  //     console.log(`Attempted to cancel appointment ID: ${appointmentId}`);
+  // };
 
   // Early Return for Redirection (unchanged)
   if (!user || user.user_type !== 'patient') {
@@ -237,11 +237,11 @@ const PatientDashboard = () => {
                 {appointment._doctor_identity_error && <p className="warning-indicator">Warning: Doctor identity missing for this appt: {appointment._doctor_identity_error}</p>}
                 
                 {/* Cancel button */}
-                <div className="appointment-actions">
+                {/* <div className="appointment-actions">
                   {appointment.status === 'booked' && (
                     <button onClick={() => handleCancelAppointment(appointment.id)} className="danger">Cancel</button>
                   )}
-                </div>
+                </div> */}
               </li>
             ))}
           </ul>
@@ -324,6 +324,13 @@ const PatientDashboard = () => {
       <hr />
 
       <button onClick={logout} className="danger">Logout</button>
+      <button 
+        className="ai-chat-button"
+        onClick={() => window.location.href = "http://127.0.0.1:5000"}
+      >
+        <span role="img" aria-label="chat">💬</span>
+        AI Chat Assistant
+      </button>
     </div>
   );
 };

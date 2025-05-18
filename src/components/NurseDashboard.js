@@ -1,8 +1,9 @@
-// src/components/NurseDashboard.js
+// src/components/NurseDashboard.js (with CSS applied)
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import axios from 'axios';
+import '../css/index.css'; // Import CSS
 
 // Assume service ports are defined somewhere accessible
 const SERVICE_URLS = {
@@ -38,7 +39,7 @@ const NurseDashboard = () => {
   const [recordingSuccess, setRecordingSuccess] = useState(null); // Success message for recording
 
 
-  // --- Data Fetching using useEffect ---
+  // --- Data Fetching using useEffect (unchanged) ---
   useEffect(() => {
     const fetchNurseData = async () => {
       setLoading(true);
@@ -47,23 +48,18 @@ const NurseDashboard = () => {
       const nurseUserId = user.id; // Get the logged-in nurse's UUID
 
       try {
-        // 1. Fetch Nurse Profile (Identity + Nurse specific)
-        // Call the Nurse Service detail endpoint, which aggregates Identity data
+        // 1. Fetch Nurse Profile
         const profileResponse = await axios.get(`${SERVICE_URLS.nurse}/nurses/${nurseUserId}/`);
         setNurseProfile(profileResponse.data);
         console.log('Fetched Nurse Profile:', profileResponse.data);
 
-
         // 2. Fetch Vitals Recorded by This Nurse
-        // Call the Nurse Service list endpoint for vitals, filtered by nurse_user_id
-        // Nurse Service aggregates Patient and Nurse Identity data for vitals
         const vitalsResponse = await axios.get(`${SERVICE_URLS.nurse}/vitals/`, {
           params: { nurse_user_id: nurseUserId } // Send nurse_user_id as a query parameter
         });
         // Vitals are already ordered by timestamp descending in the backend
         setRecordedVitals(vitalsResponse.data);
         console.log('Fetched Vitals recorded by nurse:', vitalsResponse.data);
-
 
       } catch (err) {
         console.error('Error fetching nurse data:', err);
@@ -91,7 +87,7 @@ const NurseDashboard = () => {
   }, [user, navigate]); // Include navigate in dependency array
 
 
-  // --- Fetch Patients for Recording Vitals Form ---
+  // --- Fetch Patients for Recording Vitals Form (unchanged) ---
   useEffect(() => {
       // Only fetch patients when the recording form is activated and we haven't fetched them yet
       if (isRecordingVitals && patients.length === 0) {
@@ -113,7 +109,7 @@ const NurseDashboard = () => {
   }, [isRecordingVitals, patients.length]); // Re-run when isRecordingVitals state changes or if patients list is empty
 
 
-  // --- Handle Starting Record Vitals ---
+  // --- Handle Starting Record Vitals (unchanged) ---
   const handleStartRecordVitals = () => {
       // Initialize form state
       setSelectedPatientId('');
@@ -126,7 +122,7 @@ const NurseDashboard = () => {
       setIsRecordingVitals(true); // Show the form
   };
 
-  // --- Handle Submit Vitals ---
+  // --- Handle Submit Vitals (unchanged) ---
    const handleSubmitVitals = async (e) => {
        e.preventDefault();
 
@@ -150,7 +146,6 @@ const NurseDashboard = () => {
             timestampToSend += ':00Z'; // Add seconds and assume UTC for simplicity
        }
 
-
        const vitalsPayload = {
            patient_user_id: selectedPatientId,
            nurse_user_id: nurseUserId,
@@ -171,7 +166,6 @@ const NurseDashboard = () => {
        if (vitalsPayload.heart_rate_bpm !== null && isNaN(vitalsPayload.heart_rate_bpm)) { setRecordingError('Invalid heart rate.'); setRecordingLoading(false); return; }
        if (vitalsPayload.respiratory_rate_bpm !== null && isNaN(vitalsPayload.respiratory_rate_bpm)) { setRecordingError('Invalid respiratory rate.'); setRecordingLoading(false); return; }
        if (vitalsPayload.oxygen_saturation_percentage !== null && isNaN(vitalsPayload.oxygen_saturation_percentage)) { setRecordingError('Invalid oxygen saturation.'); setRecordingLoading(false); return; }
-
 
        try {
            // Call the Nurse Service POST /api/vitals/ endpoint
@@ -220,42 +214,41 @@ const NurseDashboard = () => {
    };
 
 
-  // --- Early Return for Redirection (Must come AFTER Hook calls) ---
+  // --- Early Return for Redirection (Same) ---
   if (!user || user.user_type !== 'nurse') {
     navigate('/login');
     return <div>Redirecting...</div>;
   }
 
 
-  // --- Render Loading/Error States (Must come AFTER Early Returns) ---
+  // --- Render Loading/Error States ---
   if (loading) {
-    return <div>Loading Nurse Dashboard...</div>;
+    return <div className="loading">Loading Nurse Dashboard...</div>;
   }
 
   if (error) {
     return (
-      <div>
+      <div className="container">
         <h2>Error</h2>
-        <p>{error}</p>
-        <button onClick={logout}>Logout</button>
+        <p className="error-message">{error}</p>
+        <button onClick={logout} className="danger">Logout</button>
       </div>
     );
   }
 
   // --- Render Data and Forms ---
   return (
-    <div>
+    <div className="container nurse-dashboard">
       <h2>Nurse Dashboard</h2>
 
       {/* Display Nurse Profile */}
       {nurseProfile ? (
-        <div>
+        <div className="profile-section">
           <h3>Your Profile</h3>
-          <p>Name: {nurseProfile.first_name} {nurseProfile.last_name}</p>
-          <p>Username: {nurseProfile.username}</p>
-          <p>Employee ID: {nurseProfile.employee_id || 'N/A'}</p>
-          {/* Show _identity_error if Identity call failed during aggregation */}
-          {nurseProfile._identity_error && <p style={{color:'orange'}}>Warning: Could not load all identity data: {nurseProfile._identity_error}</p>}
+          <p><strong>Name:</strong> {nurseProfile.first_name} {nurseProfile.last_name}</p>
+          <p><strong>Username:</strong> {nurseProfile.username}</p>
+          <p><strong>Employee ID:</strong> {nurseProfile.employee_id || 'N/A'}</p>
+          {nurseProfile._identity_error && <p className="warning-message">Warning: Could not load all identity data: {nurseProfile._identity_error}</p>}
         </div>
       ) : (
         !loading && <p>Could not load profile data.</p>
@@ -264,129 +257,136 @@ const NurseDashboard = () => {
       <hr />
 
       {/* Record Patient Vitals Section */}
-       <h3>Record Patient Vitals</h3>
-       {!isRecordingVitals ? (
-           <button onClick={handleStartRecordVitals}>Record New Vitals</button>
-       ) : (
-           <div>
-               <h4>Enter Vitals</h4>
-               <form onSubmit={handleSubmitVitals}>
-                   <div>
-                       <label htmlFor="patient">Select Patient:</label>
-                       {patients.length > 0 ? (
-                           <select id="patient" value={selectedPatientId} onChange={(e) => setSelectedPatientId(e.target.value)} required>
-                               <option value="">-- Select a Patient --</option>
-                               {patients.map(patient => (
-                                   // Patient Service list endpoint returns aggregated data (includes name)
-                                   <option key={patient.user_id} value={patient.user_id}>
-                                       {patient.first_name} {patient.last_name} ({patient.username})
-                                   </option>
-                               ))}
-                           </select>
-                       ) : (
-                           // Display loading or error state for patients fetch
-                           recordingError && recordingError.includes('patients list') ?
-                              <p style={{color:'red'}}>{recordingError}</p> :
-                              <p>Loading patients...</p>
-                       )}
-                   </div>
-                   <div>
-                       <label htmlFor="vitalsTimestamp">Timestamp:</label>
-                       {/* Use type="datetime-local" for date and time input */}
-                       <input
-                           type="datetime-local"
-                           id="vitalsTimestamp"
-                           value={vitalsTimestamp}
-                           onChange={(e) => setVitalsTimestamp(e.target.value)}
-                           required
-                       />
-                   </div>
-                   {/* Vitals Inputs (add more as needed based on model) */}
-                    <div>
-                       <label htmlFor="temperature">Temperature (°C):</label>
-                       <input type="number" id="temperature" value={temperature} onChange={(e) => setTemperature(e.target.value)} step="0.01" />
-                   </div>
-                    <div>
-                       <label htmlFor="systolicBP">Systolic BP (mmHg):</label>
-                       <input type="number" id="systolicBP" value={systolicBP} onChange={(e) => setSystolicBP(e.target.value)} />
-                   </div>
-                    <div>
-                       <label htmlFor="diastolicBP">Diastolic BP (mmHg):</label>
-                       <input type="number" id="diastolicBP" value={diastolicBP} onChange={(e) => setDiastolicBP(e.target.value)} />
-                   </div>
-                    <div>
-                       <label htmlFor="heartRate">Heart Rate (bpm):</label>
-                       <input type="number" id="heartRate" value={heartRate} onChange={(e) => setHeartRate(e.target.value)} />
-                   </div>
-                    <div>
-                       <label htmlFor="respiratoryRate">Respiratory Rate (bpm):</label>
-                       <input type="number" id="respiratoryRate" value={respiratoryRate} onChange={(e) => setRespiratoryRate(e.target.value)} />
-                   </div>
-                    <div>
-                       <label htmlFor="oxygenSaturation">Oxygen Saturation (%):</label>
-                       <input type="number" id="oxygenSaturation" value={oxygenSaturation} onChange={(e) => setOxygenSaturation(e.target.value)} step="0.01" />
-                   </div>
-                    <div>
-                       <label htmlFor="vitalsNotes">Notes:</label>
-                       <textarea id="vitalsNotes" value={vitalsNotes} onChange={(e) => setVitalsNotes(e.target.value)} rows={3} style={{ width: '80%' }}></textarea>
-                   </div>
+      <div className="record-vitals-section">
+        <h3>Record Patient Vitals</h3>
+        {!isRecordingVitals ? (
+            <button onClick={handleStartRecordVitals}>Record New Vitals</button>
+        ) : (
+            <div className="vitals-form">
+                <h4>Enter Vitals</h4>
+                <form onSubmit={handleSubmitVitals}>
+                    <div className="form-group">
+                        <label htmlFor="patient">Select Patient:</label>
+                        {patients.length > 0 ? (
+                            <select id="patient" value={selectedPatientId} onChange={(e) => setSelectedPatientId(e.target.value)} required>
+                                <option value="">-- Select a Patient --</option>
+                                {patients.map(patient => (
+                                    <option key={patient.user_id} value={patient.user_id}>
+                                        {patient.first_name} {patient.last_name} ({patient.username})
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            recordingError && recordingError.includes('patients list') ?
+                               <p className="form-error">{recordingError}</p> :
+                               <p>Loading patients...</p>
+                        )}
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="vitalsTimestamp">Timestamp:</label>
+                        <input
+                            type="datetime-local"
+                            id="vitalsTimestamp"
+                            value={vitalsTimestamp}
+                            onChange={(e) => setVitalsTimestamp(e.target.value)}
+                            required
+                        />
+                    </div>
+                    
+                    <div className="vitals-form-grid">
+                        <div className="form-group">
+                            <label htmlFor="temperature">Temperature (°C):</label>
+                            <input type="number" id="temperature" value={temperature} onChange={(e) => setTemperature(e.target.value)} step="0.01" />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="systolicBP">Systolic BP (mmHg):</label>
+                            <input type="number" id="systolicBP" value={systolicBP} onChange={(e) => setSystolicBP(e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="diastolicBP">Diastolic BP (mmHg):</label>
+                            <input type="number" id="diastolicBP" value={diastolicBP} onChange={(e) => setDiastolicBP(e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="heartRate">Heart Rate (bpm):</label>
+                            <input type="number" id="heartRate" value={heartRate} onChange={(e) => setHeartRate(e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="respiratoryRate">Respiratory Rate (bpm):</label>
+                            <input type="number" id="respiratoryRate" value={respiratoryRate} onChange={(e) => setRespiratoryRate(e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="oxygenSaturation">Oxygen Saturation (%):</label>
+                            <input type="number" id="oxygenSaturation" value={oxygenSaturation} onChange={(e) => setOxygenSaturation(e.target.value)} step="0.01" />
+                        </div>
+                    </div>
+                    
+                    <div className="form-group form-group-full">
+                        <label htmlFor="vitalsNotes">Notes:</label>
+                        <textarea id="vitalsNotes" value={vitalsNotes} onChange={(e) => setVitalsNotes(e.target.value)} rows={3}></textarea>
+                    </div>
 
+                    {recordingError && <div className="form-error">{recordingError}</div>}
+                    {recordingSuccess && <div className="form-success">{recordingSuccess}</div>}
 
-                   {recordingError && <div style={{ color: 'red' }}>{recordingError}</div>}
-                   {recordingSuccess && <div style={{ color: 'green' }}>{recordingSuccess}</div>}
-
-                   <button type="submit" disabled={recordingLoading || patients.length === 0}> {/* Disable if loading or no patients loaded */}
-                       {recordingLoading ? 'Saving...' : 'Save Vitals'}
-                   </button>
-                   <button type="button" onClick={() => setIsRecordingVitals(false)} disabled={recordingLoading}>
-                       Cancel
-                   </button>
-               </form>
-           </div>
-       )}
-
+                    <div className="form-actions">
+                        <button type="submit" disabled={recordingLoading || patients.length === 0}>
+                            {recordingLoading ? 'Saving...' : 'Save Vitals'}
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => setIsRecordingVitals(false)} 
+                          disabled={recordingLoading}
+                          className="danger"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        )}
+      </div>
 
       <hr />
 
       {/* Display Vitals Recorded by this Nurse */}
-      <h3>Vitals You Recorded</h3>
-      {recordedVitals.length > 0 ? (
-        <ul>
-          {recordedVitals.map(v => (
-            <li key={v.id}>
-              For Patient: {v.patient ? `${v.patient.first_name} ${v.patient.last_name}` : (v._patient_identity_error || 'N/A')}<br/>
-              On: <strong>{new Date(v.timestamp).toLocaleString()}</strong>
-              <ul> {/* Nested list for vitals details */}
-                {v.temperature_celsius !== null && <li>Temp: {v.temperature_celsius}°C</li>}
-                {(v.blood_pressure_systolic !== null || v.blood_pressure_diastolic !== null) && <li>BP: {v.blood_pressure_systolic || '?'} / {v.blood_pressure_diastolic || '?'} mmHg</li>}
-                {v.heart_rate_bpm !== null && <li>HR: {v.heart_rate_bpm} bpm</li>}
-                {v.respiratory_rate_bpm !== null && <li>RR: {v.respiratory_rate_bpm} bpm</li>}
-                {v.oxygen_saturation_percentage !== null && <li>O₂ Sat: {v.oxygen_saturation_percentage}%</li>}
-                {v.notes && <li>Notes: {v.notes}</li>}
-                 {v._patient_identity_error && <p style={{color:'orange', margin:0}}>Warning: Patient identity missing: {v._patient_identity_error}</p>}
-                 {v._nurse_identity_error && <p style={{color:'orange', margin:0}}>Warning: Nurse identity missing: {v._nurse_identity_error}</p>} {/* Should not happen for vitals recorded by this nurse */}
-              </ul>
-              {/* Add button to view this patient's history? */}
-              {/* v.patient_user_id && <button onClick={() => navigate(`/patients/${v.patient_user_id}/medical-history`)} style={{ marginLeft: '10px' }}>View Patient History</button> */}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        !loading && <p>No vitals recorded yet.</p>
-      )}
+      <div className="recorded-vitals-section">
+        <h3>Vitals You Recorded</h3>
+        {recordedVitals.length > 0 ? (
+          <ul className="vitals-list">
+            {recordedVitals.map(v => (
+              <li key={v.id} className="vitals-item">
+                <div className="vitals-header">
+                  For Patient: {v.patient ? `${v.patient.first_name} ${v.patient.last_name}` : (v._patient_identity_error || 'N/A')}
+                  <br/>On: <strong>{new Date(v.timestamp).toLocaleString()}</strong>
+                </div>
+                <ul className="vitals-details">
+                  {v.temperature_celsius !== null && <li>Temp: {v.temperature_celsius}°C</li>}
+                  {(v.blood_pressure_systolic !== null || v.blood_pressure_diastolic !== null) && <li>BP: {v.blood_pressure_systolic || '?'} / {v.blood_pressure_diastolic || '?'} mmHg</li>}
+                  {v.heart_rate_bpm !== null && <li>HR: {v.heart_rate_bpm} bpm</li>}
+                  {v.respiratory_rate_bpm !== null && <li>RR: {v.respiratory_rate_bpm} bpm</li>}
+                  {v.oxygen_saturation_percentage !== null && <li>O₂ Sat: {v.oxygen_saturation_percentage}%</li>}
+                  {v.notes && <li className="vitals-notes">Notes: {v.notes}</li>}
+                </ul>
+                {v._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing: {v._patient_identity_error}</p>}
+                {v._nurse_identity_error && <p className="warning-indicator">Warning: Nurse identity missing: {v._nurse_identity_error}</p>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          !loading && <p>No vitals recorded yet.</p>
+        )}
+      </div>
 
       <hr />
 
       {/* Add other nurse functionalities */}
-       <h3>Other Nurse Functions (To Be Implemented)</h3>
-       {/* Example: */}
-       {/* <button>View All Patients</button> */}
-       {/* <button>View My Schedule</button> */} {/* Requires Appointment Service */}
-
+      <div>
+        <h3>Other Nurse Functions (To Be Implemented)</h3>
+      </div>
 
       <hr />
 
-      <button onClick={logout}>Logout</button>
+      <button onClick={logout} className="danger">Logout</button>
     </div>
   );
 };

@@ -1,0 +1,141 @@
+/* src/css/labTechDashboard.css - Styles for the Lab Technician Dashboard */
+
+.lab-tech-dashboard {
+  margin-bottom: 3rem;
+}
+
+.profile-section {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--box-shadow);
+}
+
+.profile-section p {
+  margin: 0.5rem 0;
+}
+
+.record-result-section {
+  margin-bottom: 2rem;
+}
+
+.record-form {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--box-shadow);
+}
+
+.pending-orders-section {
+  margin-bottom: 2rem;
+}
+
+.orders-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.order-item {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--box-shadow);
+  border-left: 4px solid var(--primary-color);
+}
+
+.order-item p {
+  margin: 0.5rem 0;
+}
+
+.order-header {
+  font-weight: bold;
+  color: var(--primary-dark);
+}
+
+.order-notes {
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.order-actions {
+  margin-top: 0.5rem;
+}
+
+.recorded-results-section {
+  margin-bottom: 2rem;
+}
+
+.results-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.result-item {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--box-shadow);
+  border-left: 4px solid var(--secondary-color);
+}
+
+.result-header {
+  font-weight: bold;
+  color: var(--primary-dark);
+}
+
+.result-data {
+  margin-top: 1rem;
+  background-color: var(--light-gray);
+  padding: 0.75rem;
+  border-radius: var(--border-radius);
+  overflow-x: auto;
+}
+
+.result-data pre {
+  margin: 0;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.result-data ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.form-error {
+  color: var(--danger-color);
+  margin-bottom: 1rem;
+}
+
+.form-success {
+  color: var(--secondary-color);
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions button {
+    margin-right: 0;
+    margin-bottom: 0.5rem;
+    width: 100%;
+  }
+}

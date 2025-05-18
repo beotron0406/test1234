@@ -1,0 +1,116 @@
+/* src/css/nurseDashboard.css - Styles for the Nurse Dashboard */
+
+.nurse-dashboard {
+  margin-bottom: 3rem;
+}
+
+.profile-section {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--box-shadow);
+}
+
+.profile-section p {
+  margin: 0.5rem 0;
+}
+
+.record-vitals-section {
+  margin-bottom: 2rem;
+}
+
+.vitals-form {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--box-shadow);
+}
+
+.vitals-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group-full {
+  grid-column: 1 / -1;
+}
+
+.recorded-vitals-section {
+  margin-bottom: 2rem;
+}
+
+.vitals-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.vitals-item {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--box-shadow);
+  border-left: 4px solid var(--primary-color);
+}
+
+.vitals-header {
+  font-weight: bold;
+  color: var(--primary-dark);
+  margin-bottom: 0.5rem;
+}
+
+.vitals-details {
+  list-style-type: none;
+  padding-left: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.vitals-details li {
+  margin-bottom: 0.25rem;
+}
+
+.vitals-notes {
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+
+.form-error {
+  color: var(--danger-color);
+  margin-bottom: 1rem;
+}
+
+.form-success {
+  color: var(--secondary-color);
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .vitals-form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions button {
+    margin-right: 0;
+    margin-bottom: 0.5rem;
+    width: 100%;
+  }
+}

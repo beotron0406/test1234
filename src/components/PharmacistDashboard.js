@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import axios from 'axios';
+import '../css/pharmacistDashboard.css'; // Import the CSS file
 
 // Assume service ports are defined somewhere accessible
 const SERVICE_URLS = {
@@ -152,7 +153,7 @@ const PharmacistDashboard = () => {
 
   if (error) {
     return (
-      <div>
+      <div className="pharmacist-dashboard">
         <h2>Error</h2>
         <p>{error}</p>
         <button onClick={logout}>Logout</button>
@@ -162,12 +163,12 @@ const PharmacistDashboard = () => {
 
   // --- Render Data ---
   return (
-    <div>
+    <div className="pharmacist-dashboard">
       <h2>Pharmacist Dashboard</h2>
 
-      {/* Display Pharmacist Profile (Same) */}
-      {pharmacistProfile ? ( /* ... profile display ... */
-        <div>
+      {/* Display Pharmacist Profile with profile-section class */}
+      {pharmacistProfile ? (
+        <div className="profile-section">
           <h3>Your Profile</h3>
           <p>Name: {pharmacistProfile.first_name} {pharmacistProfile.last_name}</p>
           <p>Username: {pharmacistProfile.username}</p>
@@ -180,52 +181,82 @@ const PharmacistDashboard = () => {
         !loading && <p>Could not load profile data.</p>
       )}
 
+      {/* Prescriptions section */}
+      <div className="prescriptions-section">
+        <h3>Active Prescriptions</h3>
+        
+        {/* Fulfillment messages with appropriate classes */}
+        {fulfillmentError && (
+          <div className="fulfillment-message fulfillment-error">{fulfillmentError}</div>
+        )}
+        {fulfillmentSuccess && (
+          <div className="fulfillment-message fulfillment-success">{fulfillmentSuccess}</div>
+        )}
+
+        {prescriptions.length > 0 ? (
+          <ul className="prescriptions-list">
+            {prescriptions.map(prescription => (
+              <li key={prescription.id} className="prescription-item">
+                <div className="prescription-header">
+                  <strong>{prescription.medication_name}</strong> {prescription.dosage} - {prescription.frequency} for {prescription.duration}
+                </div>
+                
+                <div className="prescription-details">
+                  Prescribed on: {new Date(prescription.prescription_date).toLocaleDateString()} by Dr. {prescription.doctor ? `${prescription.doctor.first_name} ${prescription.doctor.last_name}` : (prescription._doctor_identity_error || 'N/A')}
+                </div>
+                
+                <div className="prescription-details">
+                  For Patient: {prescription.patient ? `${prescription.patient.first_name} ${prescription.patient.last_name}` : (prescription._patient_identity_error || 'N/A')}
+                </div>
+                
+                {prescription.notes && <div className="prescription-notes">Notes: {prescription.notes}</div>}
+                
+                {/* Status badges */}
+                <div>
+                  {prescription.status && (
+                    <span className={`prescription-status status-${prescription.status}`}>
+                      {prescription.status.charAt(0).toUpperCase() + prescription.status.slice(1)}
+                    </span>
+                  )}
+                </div>
+                
+                {prescription.fulfilled_by_pharmacist && (
+                  <div className="prescription-details">
+                    Filled by: {prescription.fulfilled_by_pharmacist.first_name} {prescription.fulfilled_by_pharmacist.last_name} on {new Date(prescription.fulfilled_date).toLocaleDateString()}
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                {prescription.status === 'active' && (
+                  <div className="prescription-actions">
+                    <button
+                      onClick={() => handleFulfillPrescription(prescription.id)}
+                      disabled={fulfillingId === prescription.id}
+                    >
+                      {fulfillingId === prescription.id ? 'Fulfilling...' : 'Fulfill'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Display individual S2S errors if present */}
+                {prescription._patient_identity_error && <p style={{color:'orange', margin:0}}>Warning: Patient identity missing: {prescription._patient_identity_error}</p>}
+                {prescription._doctor_identity_error && <p style={{color:'orange', margin:0}}>Warning: Doctor identity missing: {prescription._doctor_identity_error}</p>}
+                {prescription._pharmacist_identity_error && <p style={{color:'orange', margin:0}}>Warning: Pharmacist identity missing: {prescription._pharmacist_identity_error}</p>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          !loading && <p>No active prescriptions found.</p>
+        )}
+      </div>
+
       <hr />
 
-      {/* Display Prescriptions (Filtered for Active by default in fetch) (Same) */}
-      <h3>Active Prescriptions</h3>
-       {fulfillmentError && <div style={{ color: 'red' }}>{fulfillmentError}</div>}
-       {fulfillmentSuccess && <div style={{ color: 'green' }}>{fulfillmentSuccess}</div>}
-
-      {prescriptions.length > 0 ? ( /* ... prescriptions list display ... */
-        <ul>
-          {prescriptions.map(prescription => (
-            <li key={prescription.id}>
-              <strong>{prescription.medication_name}</strong> {prescription.dosage} - {prescription.frequency} for {prescription.duration}<br />
-              Prescribed on: {new Date(prescription.prescription_date).toLocaleDateString()} by Dr. {prescription.doctor ? `${prescription.doctor.first_name} ${prescription.doctor.last_name}` : (prescription._doctor_identity_error || 'N/A')}<br/>
-              For Patient: {prescription.patient ? `${prescription.patient.first_name} ${prescription.patient.last_name}` : (prescription._patient_identity_error || 'N/A')}
-              {prescription.notes && <p>Notes: {prescription.notes}</p>}
-               {prescription.status !== 'active' && <p>Status: {prescription.status}</p>}
-               {prescription.fulfilled_by_pharmacist && <p>Filled by: {prescription.fulfilled_by_pharmacist.first_name} {prescription.fulfilled_by_pharmacist.last_name} on {new Date(prescription.fulfilled_date).toLocaleDateString()}</p>}
-
-               {/* Fulfill Button (Same) */}
-               {prescription.status === 'active' && (
-                   <button
-                       onClick={() => handleFulfillPrescription(prescription.id)}
-                       disabled={fulfillingId === prescription.id} // Disable button while fulfilling
-                       style={{ marginLeft: '10px' }}
-                   >
-                       {fulfillingId === prescription.id ? 'Fulfilling...' : 'Fulfill'}
-                   </button>
-               )}
-
-               {/* Display individual S2S errors if present (Same) */}
-               {prescription._patient_identity_error && <p style={{color:'orange', margin:0}}>Warning: Patient identity missing: {prescription._patient_identity_error}</p>}
-               {prescription._doctor_identity_error && <p style={{color:'orange', margin:0}}>Warning: Doctor identity missing: {prescription._doctor_identity_error}</p>}
-               {prescription._pharmacist_identity_error && <p style={{color:'orange', margin:0}}>Warning: Pharmacist identity missing: {prescription._pharmacist_identity_error}</p>}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        !loading && <p>No active prescriptions found.</p>
-      )}
-
-      <hr />
-
-      {/* Other Pharmacist Functions (Same) */}
-       <h3>Other Pharmacist Functions (To Be Implemented)</h3>
-       {/* ... */}
-
+      {/* Other Pharmacist Functions */}
+      <div className="profile-section">
+        <h3>Other Pharmacist Functions (To Be Implemented)</h3>
+        {/* ... */}
+      </div>
 
       <hr />
 

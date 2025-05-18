@@ -1,0 +1,106 @@
+/* src/css/pharmacistDashboard.css - Styles for the Pharmacist Dashboard */
+
+.pharmacist-dashboard {
+  margin-bottom: 3rem;
+  margin-top: 3rem;
+  margin-left: 10rem;
+  margin-right: 10rem;
+}
+
+.profile-section {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--box-shadow);
+}
+
+.profile-section p {
+  margin: 0.5rem 0;
+}
+
+.prescriptions-section {
+  margin-bottom: 2rem;
+}
+
+.prescriptions-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.prescription-item {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--box-shadow);
+  border-left: 4px solid var(--primary-color);
+}
+
+.prescription-header {
+  font-weight: bold;
+  color: var(--primary-dark);
+}
+
+.prescription-details {
+  margin: 0.5rem 0;
+}
+
+.prescription-notes {
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.prescription-status {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--border-radius);
+  margin-right: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.status-active {
+  background-color: rgba(52, 152, 219, 0.2);
+  color: var(--primary-dark);
+}
+
+.status-fulfilled {
+  background-color: rgba(46, 204, 113, 0.2);
+  color: var(--secondary-dark);
+}
+
+.status-expired {
+  background-color: rgba(231, 76, 60, 0.2);
+  color: var(--danger-color);
+}
+
+.prescription-actions {
+  margin-top: 0.75rem;
+}
+
+.fulfillment-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: var(--border-radius);
+}
+
+.fulfillment-error {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--danger-color);
+  border-left: 3px solid var(--danger-color);
+}
+
+.fulfillment-success {
+  background-color: rgba(46, 204, 113, 0.1);
+  color: var(--secondary-color);
+  border-left: 3px solid var(--secondary-color);
+}
+
+@media (max-width: 768px) {
+  .prescription-actions button {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+}

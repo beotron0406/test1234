@@ -60,8 +60,8 @@ function App() {
 
             {/* Modified Protected Route for Medical History Detail */}
             {/* Now accepts a patientId URL parameter */}
-             <Route path="/patients/:patientId/medical-history" element={<ProtectedRoute><MedicalHistoryDetail /></ProtectedRoute>} />
-
+             {/* <Route path="/patients/:patientId/medical-history" element={<ProtectedRoute><MedicalHistoryDetail /></ProtectedRoute>} /> */}
+             <Route path="/patient/medical-history" element={<ProtectedRoute><MedicalHistoryDetail /></ProtectedRoute>} /> 
             {/* Default route */}
             <Route path="/" element={<RedirectIfLoggedIn><Navigate to="/login" replace /></RedirectIfLoggedIn>} />
 

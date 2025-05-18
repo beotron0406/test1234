@@ -1,4 +1,4 @@
-// src/components/MedicalHistoryDetail.js (with class names added)
+// src/components/MedicalHistoryDetail.js (with improved lab result display)
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -7,6 +7,42 @@ import '../css/index.css'; // Import CSS
 
 const SERVICE_URLS = {
   medicalRecords: 'http://localhost:8007/api',
+};
+
+// Helper function to format lab results in a readable way
+const formatLabResults = (resultData) => {
+  if (!resultData || typeof resultData !== 'object') {
+    return <p>No data available</p>;
+  }
+
+  return (
+    <div className="formatted-lab-results">
+      <table className="result-table">
+        <thead>
+          <tr>
+            <th>Test Parameter</th>
+            <th>Result</th>
+            <th>Unit</th>
+            <th>Reference Range</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(resultData).map(([paramName, paramData]) => (
+            <tr key={paramName} className="result-row">
+              <td className="param-name">{paramName}</td>
+              <td className="param-value">
+                {paramData.value !== undefined ? 
+                  (typeof paramData.value === 'number' ? paramData.value.toLocaleString() : paramData.value) 
+                  : 'N/A'}
+              </td>
+              <td className="param-unit">{paramData.unit || ''}</td>
+              <td className="param-range">{paramData.reference_range || 'Not specified'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 };
 
 const MedicalHistoryDetail = () => {
@@ -186,7 +222,7 @@ const MedicalHistoryDetail = () => {
 
       <hr/>
 
-      {/* Display Lab Results */}
+      {/* Display Lab Results - IMPROVED SECTION */}
       <div className="history-section">
         <h3>Lab Results</h3>
         {lab_results && lab_results.length > 0 ? (
@@ -197,7 +233,12 @@ const MedicalHistoryDetail = () => {
                           <strong>{result.order ? result.order.test_type : 'Unknown Test'}</strong> ({result.status}) on {new Date(result.result_date).toLocaleDateString()}
                         </div>
                         <p>Recorded by Lab Tech {result.lab_technician ? `${result.lab_technician.first_name} ${result.lab_technician.last_name}` : (result._lab_technician_identity_error || 'N/A')}</p>
-                        <p>Result Data: {result.result_data ? JSON.stringify(result.result_data) : 'N/A'}</p>
+                        
+                        {/* Replace JSON.stringify with the formatted display */}
+                        <div className="result-data">
+                          {formatLabResults(result.result_data)}
+                        </div>
+
                         {result.notes && <p>Technician's Notes: {result.notes}</p>}
 
                         {result.order && (
@@ -240,11 +281,11 @@ const MedicalHistoryDetail = () => {
 
       <hr />
 
-      {/* Add section for Prescriptions when implemented */}
+      {/* Add section for Prescriptions when implemented
       <div className="history-section">
         <h3>Prescriptions (To Be Implemented)</h3>
         <p>Prescription history will appear here.</p>
-      </div>
+      </div> */}
 
       <hr />
 
