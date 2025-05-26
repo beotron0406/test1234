@@ -1,16 +1,25 @@
 // src/components/PharmacistDashboard.js
 import React, { useState, useEffect } from 'react';
+import {
+  Layout, Typography, Card, Button, Alert, Space, List, 
+  Tag, Spin, message, Modal
+} from 'antd';
+import {
+  UserOutlined, MedicineBoxOutlined, CheckCircleOutlined,
+  ExclamationCircleOutlined
+} from '@ant-design/icons';
 import { useUser } from '../context/UserContext';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import '../css/pharmacistDashboard.css'; // Import the CSS file
 
-// Assume service ports are defined somewhere accessible
+const { Header, Content } = Layout;
+const { Title, Text } = Typography;
+const { confirm } = Modal;
+
+// Service URLs
 const SERVICE_URLS = {
-  // Corrected the port for the pharmacist service to 8003
-  pharmacist: 'http://localhost:8003/api', // <-- Corrected Pharmacist Service API base URL
+  pharmacist: 'http://localhost:8003/api',
   prescription: 'http://localhost:8008/api',
-  // Add other services as needed for pharmacist views
 };
 
 const PharmacistDashboard = () => {
@@ -19,17 +28,14 @@ const PharmacistDashboard = () => {
 
   // State for fetched data
   const [pharmacistProfile, setPharmacistProfile] = useState(null);
-  const [prescriptions, setPrescriptions] = useState([]); // List of prescriptions
+  const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // General fetch error
+  const [error, setError] = useState(null);
 
   // State for fulfillment action
-  const [fulfillingId, setFulfillingId] = useState(null); // Tracks which prescription is being fulfilled
-  const [fulfillmentError, setFulfillmentError] = useState(null); // Error for fulfillment action
-  const [fulfillmentSuccess, setFulfillmentSuccess] = useState(null); // Success message for fulfillment
+  const [fulfillingId, setFulfillingId] = useState(null);
 
-
-  // --- Data Fetching using useEffect ---
+  // Data Fetching
   useEffect(() => {
     const fetchPharmacistData = async () => {
       setLoading(true);
@@ -38,230 +44,324 @@ const PharmacistDashboard = () => {
       const pharmacistUserId = user.id;
 
       try {
-        // 1. Fetch Pharmacist Profile (Identity + Pharmacist specific)
-        // Call the Pharmacist Service detail endpoint, which aggregates Identity data
-        // CORRECTED the endpoint URL string to /pharmacists/
-        const profileResponse = await axios.get(`${SERVICE_URLS.pharmacist}/pharmacists/${pharmacistUserId}/`); // <-- CORRECTED CALL
+        // 1. Fetch Pharmacist Profile
+        const profileResponse = await axios.get(`${SERVICE_URLS.pharmacist}/pharmacists/${pharmacistUserId}/`);
         setPharmacistProfile(profileResponse.data);
-        console.log('Fetched Pharmacist Profile:', profileResponse.data);
-
 
         // 2. Fetch Prescriptions
-        // Call the Prescription Service list endpoint, filtered for active
         const prescriptionsResponse = await axios.get(`${SERVICE_URLS.prescription}/prescriptions/`, {
-             params: { status: 'active' } // Filter for active prescriptions
+          params: { status: 'active' }
         });
-        // Sort prescriptions by date
         const sortedPrescriptions = prescriptionsResponse.data.sort((a, b) =>
-            new Date(b.prescription_date) - new Date(a.prescription_date) // Newest first
+          new Date(b.prescription_date) - new Date(a.prescription_date)
         );
-        setPrescriptions(sortedPrescriptions); // Update the state with fetched prescriptions
-        console.log('Fetched Active Prescriptions:', sortedPrescriptions);
-
-
+        setPrescriptions(sortedPrescriptions);
       } catch (err) {
         console.error('Error fetching pharmacist data:', err);
-         if (err.response && err.response.data && err.response.data.error) {
-             setError(`Failed to fetch pharmacist data: ${err.response.data.error}`);
-         } else if (err.request) {
-             setError('Failed to fetch pharmacist data: Network error or service is down.');
-         } else {
-             setError('An unexpected error occurred while fetching data.');
-         }
+        if (err.response && err.response.data && err.response.data.error) {
+          setError(`Failed to fetch pharmacist data: ${err.response.data.error}`);
+        } else if (err.request) {
+          setError('Failed to fetch pharmacist data: Network error or service is down.');
+        } else {
+          setError('An unexpected error occurred while fetching data.');
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    // Only fetch data if the user object (with ID) is available AND the user type is pharmacist
     if (user && user.id && user.user_type === 'pharmacist') {
-       console.log('Fetching data for pharmacist:', user.id);
-       fetchPharmacistData();
+      fetchPharmacistData();
     } else {
-       console.log('User not available or not pharmacist. Skipping data fetch.');
-       setLoading(false);
+      setLoading(false);
     }
-
   }, [user, navigate]);
 
+  // Handle Fulfill Prescription
+  const handleFulfillPrescription = (prescriptionId, medicationName) => {
+    confirm({
+      title: 'Fulfill Prescription',
+      icon: <ExclamationCircleOutlined />,
+      content: `Are you sure you want to fulfill this prescription for ${medicationName}?`,
+      okText: 'Yes, Fulfill',
+      okType: 'primary',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        setFulfillingId(prescriptionId);
 
-   // --- Handle Fulfill Prescription Action (same) ---
-   const handleFulfillPrescription = async (prescriptionId) => { /* ... */
-       setFulfillingId(prescriptionId);
-       setFulfillmentError(null);
-       setFulfillmentSuccess(null);
+        const pharmacistUserId = user.id;
+        const fulfillmentPayload = {
+          prescription_id: prescriptionId,
+          pharmacist_user_id: pharmacistUserId,
+        };
 
-       const pharmacistUserId = user.id;
+        try {
+          const response = await axios.post(`${SERVICE_URLS.pharmacist}/pharmacists/fulfill/`, fulfillmentPayload);
 
-       const fulfillmentPayload = {
-           prescription_id: prescriptionId,
-           pharmacist_user_id: pharmacistUserId,
-       };
+          if (response.status === 200) {
+            message.success('Prescription fulfilled successfully!');
+            
+            // Refetch active prescriptions
+            const prescriptionsResponse = await axios.get(`${SERVICE_URLS.prescription}/prescriptions/`, {
+              params: { status: 'active' }
+            });
+            const sortedPrescriptions = prescriptionsResponse.data.sort((a, b) =>
+              new Date(b.prescription_date) - new Date(a.prescription_date)
+            );
+            setPrescriptions(sortedPrescriptions);
+          }
+        } catch (err) {
+          console.error('Fulfillment failed:', err);
+          if (err.response && err.response.data && err.response.data.error) {
+            message.error(`Fulfillment failed: ${err.response.data.error}`);
+          } else {
+            message.error('Fulfillment failed. Please try again.');
+          }
+        } finally {
+          setFulfillingId(null);
+        }
+      },
+    });
+  };
 
-       try {
-           // Call the Pharmacist Service endpoint to initiate fulfillment
-           const response = await axios.post(`${SERVICE_URLS.pharmacist}/pharmacists/fulfill/`, fulfillmentPayload);
-
-           if (response.status === 200) { // Pharmacist Service returns 200 on success
-               setFulfillmentSuccess(`Prescription ${prescriptionId} fulfilled successfully!`);
-               console.log('Prescription fulfilled:', response.data);
-
-                // Refetch active prescriptions
-                const prescriptionsResponse = await axios.get(`${SERVICE_URLS.prescription}/prescriptions/`, {
-                    params: { status: 'active' }
-                });
-                const sortedPrescriptions = prescriptionsResponse.data.sort((a, b) =>
-                    new Date(b.prescription_date) - new Date(a.prescription_date)
-                );
-               setPrescriptions(sortedPrescriptions);
-               console.log('Refetched Active Prescriptions:', sortedPrescriptions);
-
-           } else {
-              setFulfillmentError('Failed to fulfill prescription: Unexpected response.');
-           }
-
-       } catch (err) {
-            console.error('Fulfillment failed:', err);
-            if (err.response) {
-                 if (err.response.data && err.response.data.error) {
-                     setFulfillmentError(`Fulfillment failed: ${err.response.data.error}`);
-                 } else {
-                     setFulfillmentError(`Fulfillment failed: ${err.response.status} ${err.response.statusText}`);
-                 }
-            } else if (err.request) {
-                 setFulfillmentError('Fulfillment failed: Could not connect to the pharmacist service.');
-            } else {
-                 setFulfillmentError('An unexpected error occurred during fulfillment.');
-            }
-       } finally {
-           setFulfillingId(null);
-       }
-   };
-
-
-  // --- Early Return for Redirection (Same) ---
+  // Early return for redirection
   if (!user || user.user_type !== 'pharmacist') {
     navigate('/login');
     return <div>Redirecting...</div>;
   }
 
-
-  // --- Render Loading/Error States (Same) ---
+  // Render loading state
   if (loading) {
-    return <div>Loading Pharmacist Dashboard...</div>;
-  }
-
-  if (error) {
     return (
-      <div className="pharmacist-dashboard">
-        <h2>Error</h2>
-        <p>{error}</p>
-        <button onClick={logout}>Logout</button>
-      </div>
+      <Layout className="min-h-screen">
+        <Content className="flex items-center justify-center">
+          <Spin size="large" />
+        </Content>
+      </Layout>
     );
   }
 
-  // --- Render Data ---
+  // Render error state
+  if (error) {
+    return (
+      <Layout className="min-h-screen">
+        <Content className="p-6">
+          <Card className="max-w-4xl mx-auto">
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              action={<Button danger onClick={logout}>Logout</Button>}
+            />
+          </Card>
+        </Content>
+      </Layout>
+    );
+  }
+
+  // Get status color and text
+  const getStatusConfig = (status) => {
+    switch (status) {
+      case 'active':
+        return { color: 'blue', text: 'Active' };
+      case 'fulfilled':
+        return { color: 'green', text: 'Fulfilled' };
+      case 'expired':
+        return { color: 'red', text: 'Expired' };
+      default:
+        return { color: 'default', text: status };
+    }
+  };
+
   return (
-    <div className="pharmacist-dashboard">
-      <h2>Pharmacist Dashboard</h2>
+    <Layout className="min-h-screen bg-gray-50">
+      <Header className="bg-purple-600 flex items-center justify-between px-6">
+        <Title level={3} className="text-white m-0">
+          Healthcare Management System - Pharmacist
+        </Title>
+        <Button danger onClick={logout}>Logout</Button>
+      </Header>
 
-      {/* Display Pharmacist Profile with profile-section class */}
-      {pharmacistProfile ? (
-        <div className="profile-section">
-          <h3>Your Profile</h3>
-          <p>Name: {pharmacistProfile.first_name} {pharmacistProfile.last_name}</p>
-          <p>Username: {pharmacistProfile.username}</p>
-          <p>Email: {pharmacistProfile.email}</p>
-          <p>Pharmacy Name: {pharmacistProfile.pharmacy_name || 'N/A'}</p>
-          <p>Pharmacy License: {pharmacistProfile.pharmacy_license_number || 'N/A'}</p>
-          {pharmacistProfile._identity_error && <p style={{color:'orange'}}>Warning: Could not load all identity data: {pharmacistProfile._identity_error}</p>}
-        </div>
-      ) : (
-        !loading && <p>Could not load profile data.</p>
-      )}
-
-      {/* Prescriptions section */}
-      <div className="prescriptions-section">
-        <h3>Active Prescriptions</h3>
-        
-        {/* Fulfillment messages with appropriate classes */}
-        {fulfillmentError && (
-          <div className="fulfillment-message fulfillment-error">{fulfillmentError}</div>
-        )}
-        {fulfillmentSuccess && (
-          <div className="fulfillment-message fulfillment-success">{fulfillmentSuccess}</div>
-        )}
-
-        {prescriptions.length > 0 ? (
-          <ul className="prescriptions-list">
-            {prescriptions.map(prescription => (
-              <li key={prescription.id} className="prescription-item">
-                <div className="prescription-header">
-                  <strong>{prescription.medication_name}</strong> {prescription.dosage} - {prescription.frequency} for {prescription.duration}
-                </div>
-                
-                <div className="prescription-details">
-                  Prescribed on: {new Date(prescription.prescription_date).toLocaleDateString()} by Dr. {prescription.doctor ? `${prescription.doctor.first_name} ${prescription.doctor.last_name}` : (prescription._doctor_identity_error || 'N/A')}
-                </div>
-                
-                <div className="prescription-details">
-                  For Patient: {prescription.patient ? `${prescription.patient.first_name} ${prescription.patient.last_name}` : (prescription._patient_identity_error || 'N/A')}
-                </div>
-                
-                {prescription.notes && <div className="prescription-notes">Notes: {prescription.notes}</div>}
-                
-                {/* Status badges */}
+      <Content className="p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Pharmacist Profile Card */}
+          {pharmacistProfile && (
+            <Card title={<><UserOutlined className="mr-2" />Your Profile</>}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  {prescription.status && (
-                    <span className={`prescription-status status-${prescription.status}`}>
-                      {prescription.status.charAt(0).toUpperCase() + prescription.status.slice(1)}
-                    </span>
-                  )}
+                  <Text strong>Name: </Text>
+                  <Text>{pharmacistProfile.first_name} {pharmacistProfile.last_name}</Text>
                 </div>
-                
-                {prescription.fulfilled_by_pharmacist && (
-                  <div className="prescription-details">
-                    Filled by: {prescription.fulfilled_by_pharmacist.first_name} {prescription.fulfilled_by_pharmacist.last_name} on {new Date(prescription.fulfilled_date).toLocaleDateString()}
-                  </div>
-                )}
+                <div>
+                  <Text strong>Username: </Text>
+                  <Text>{pharmacistProfile.username}</Text>
+                </div>
+                <div>
+                  <Text strong>Email: </Text>
+                  <Text>{pharmacistProfile.email}</Text>
+                </div>
+                <div>
+                  <Text strong>Pharmacy Name: </Text>
+                  <Text>{pharmacistProfile.pharmacy_name || 'N/A'}</Text>
+                </div>
+                <div>
+                  <Text strong>Pharmacy License: </Text>
+                  <Text>{pharmacistProfile.pharmacy_license_number || 'N/A'}</Text>
+                </div>
+                <div>
+                  <Text strong>Phone: </Text>
+                  <Text>{pharmacistProfile.phone_number || 'N/A'}</Text>
+                </div>
+              </div>
+              {pharmacistProfile._identity_error && (
+                <Alert
+                  message="Warning"
+                  description={`Could not load all identity data: ${pharmacistProfile._identity_error}`}
+                  type="warning"
+                  showIcon
+                  className="mt-4"
+                />
+              )}
+            </Card>
+          )}
 
-                {/* Action buttons */}
-                {prescription.status === 'active' && (
-                  <div className="prescription-actions">
-                    <button
-                      onClick={() => handleFulfillPrescription(prescription.id)}
-                      disabled={fulfillingId === prescription.id}
-                    >
-                      {fulfillingId === prescription.id ? 'Fulfilling...' : 'Fulfill'}
-                    </button>
-                  </div>
-                )}
-
-                {/* Display individual S2S errors if present */}
-                {prescription._patient_identity_error && <p style={{color:'orange', margin:0}}>Warning: Patient identity missing: {prescription._patient_identity_error}</p>}
-                {prescription._doctor_identity_error && <p style={{color:'orange', margin:0}}>Warning: Doctor identity missing: {prescription._doctor_identity_error}</p>}
-                {prescription._pharmacist_identity_error && <p style={{color:'orange', margin:0}}>Warning: Pharmacist identity missing: {prescription._pharmacist_identity_error}</p>}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          !loading && <p>No active prescriptions found.</p>
-        )}
-      </div>
-
-      <hr />
-
-      {/* Other Pharmacist Functions */}
-      <div className="profile-section">
-        <h3>Other Pharmacist Functions (To Be Implemented)</h3>
-        {/* ... */}
-      </div>
-
-      <hr />
-
-      <button onClick={logout}>Logout</button>
-    </div>
+          {/* Active Prescriptions Card */}
+          <Card title={<><MedicineBoxOutlined className="mr-2" />Active Prescriptions</>}>
+            {prescriptions.length > 0 ? (
+              <List
+                dataSource={prescriptions}
+                renderItem={prescription => {
+                  const statusConfig = getStatusConfig(prescription.status);
+                  
+                  return (
+                    <List.Item>
+                      <Card className="w-full shadow-sm border-l-4 border-l-purple-500">
+                        <div className="flex flex-col lg:flex-row lg:justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-3">
+                              <Title level={5} className="m-0">
+                                {prescription.medication_name}
+                              </Title>
+                              <Tag color={statusConfig.color}>
+                                {statusConfig.text}
+                              </Tag>
+                            </div>
+                            
+                            <Space direction="vertical" size="small" className="w-full">
+                              <div>
+                                <Text strong>Dosage: </Text>
+                                <Text>{prescription.dosage}</Text>
+                                <Text className="mx-2">•</Text>
+                                <Text strong>Frequency: </Text>
+                                <Text>{prescription.frequency}</Text>
+                                <Text className="mx-2">•</Text>
+                                <Text strong>Duration: </Text>
+                                <Text>{prescription.duration}</Text>
+                              </div>
+                              
+                              <div>
+                                <Text strong>Prescribed on: </Text>
+                                <Text>{new Date(prescription.prescription_date).toLocaleDateString()}</Text>
+                                <Text className="mx-2">by</Text>
+                                <Text strong>Dr. </Text>
+                                <Text>
+                                  {prescription.doctor ? 
+                                    `${prescription.doctor.first_name} ${prescription.doctor.last_name}` : 
+                                    (prescription._doctor_identity_error || 'N/A')}
+                                </Text>
+                              </div>
+                              
+                              <div>
+                                <Text strong>For Patient: </Text>
+                                <Text>
+                                  {prescription.patient ? 
+                                    `${prescription.patient.first_name} ${prescription.patient.last_name}` : 
+                                    (prescription._patient_identity_error || 'N/A')}
+                                </Text>
+                              </div>
+                              
+                              {prescription.notes && (
+                                <div className="p-3 bg-gray-50 rounded mt-2">
+                                  <Text strong>Notes: </Text>
+                                  <Text italic>{prescription.notes}</Text>
+                                </div>
+                              )}
+                              
+                              {prescription.fulfilled_by_pharmacist && (
+                                <div className="p-3 bg-green-50 rounded mt-2 border border-green-200">
+                                  <Text strong>Fulfilled by: </Text>
+                                  <Text>
+                                    {prescription.fulfilled_by_pharmacist.first_name} {prescription.fulfilled_by_pharmacist.last_name}
+                                  </Text>
+                                  <Text className="mx-2">on</Text>
+                                  <Text>{new Date(prescription.fulfilled_date).toLocaleDateString()}</Text>
+                                </div>
+                              )}
+                            </Space>
+                          </div>
+                          
+                          {/* Action button */}
+                          {prescription.status === 'active' && (
+                            <div className="mt-4 lg:mt-0 lg:ml-4 flex items-start">
+                              <Button
+                                type="primary"
+                                icon={<CheckCircleOutlined />}
+                                loading={fulfillingId === prescription.id}
+                                onClick={() => handleFulfillPrescription(prescription.id, prescription.medication_name)}
+                                size="large"
+                              >
+                                {fulfillingId === prescription.id ? 'Fulfilling...' : 'Fulfill'}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Display errors if present */}
+                        <div className="mt-3 space-y-2">
+                          {prescription._patient_identity_error && (
+                            <Alert
+                              message="Warning"
+                              description={`Patient identity missing: ${prescription._patient_identity_error}`}
+                              type="warning"
+                              showIcon
+                              size="small"
+                            />
+                          )}
+                          {prescription._doctor_identity_error && (
+                            <Alert
+                              message="Warning"
+                              description={`Doctor identity missing: ${prescription._doctor_identity_error}`}
+                              type="warning"
+                              showIcon
+                              size="small"
+                            />
+                          )}
+                          {prescription._pharmacist_identity_error && (
+                            <Alert
+                              message="Warning"
+                              description={`Pharmacist identity missing: ${prescription._pharmacist_identity_error}`}
+                              type="warning"
+                              showIcon
+                              size="small"
+                            />
+                          )}
+                        </div>
+                      </Card>
+                    </List.Item>
+                  );
+                }}
+              />
+            ) : (
+              <div className="text-center py-8">
+                <MedicineBoxOutlined className="text-4xl text-gray-400 mb-4" />
+                <Text type="secondary" className="text-lg">No active prescriptions found.</Text>
+              </div>
+            )}
+          </Card>
+        </div>
+      </Content>
+    </Layout>
   );
 };
 

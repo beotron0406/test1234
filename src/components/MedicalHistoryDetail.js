@@ -1,47 +1,74 @@
-// src/components/MedicalHistoryDetail.js (with improved lab result display)
+// src/components/MedicalHistoryDetail.js
 import React, { useState, useEffect } from 'react';
+import {
+  Layout, Typography, Card, Button, Alert, Space, 
+  List, Tag, Table, Spin, Row, Col
+} from 'antd';
+import {
+  ArrowLeftOutlined, UserOutlined, HeartOutlined, 
+  ExperimentOutlined, FileTextOutlined, ClockCircleOutlined
+} from '@ant-design/icons';
 import { useUser } from '../context/UserContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import '../css/index.css'; // Import CSS
+
+const { Header, Content } = Layout;
+const { Title, Text } = Typography;
 
 const SERVICE_URLS = {
   medicalRecords: 'http://localhost:8007/api',
 };
 
-// Helper function to format lab results in a readable way
+// Helper function to format lab results in a readable table
 const formatLabResults = (resultData) => {
   if (!resultData || typeof resultData !== 'object') {
-    return <p>No data available</p>;
+    return <Text type="secondary">No data available</Text>;
   }
 
+  const dataSource = Object.entries(resultData).map(([paramName, paramData], index) => ({
+    key: index,
+    parameter: paramName,
+    value: paramData.value !== undefined ? 
+      (typeof paramData.value === 'number' ? paramData.value.toLocaleString() : paramData.value) 
+      : 'N/A',
+    unit: paramData.unit || '',
+    reference: paramData.reference_range || 'Not specified'
+  }));
+
+  const columns = [
+    {
+      title: 'Test Parameter',
+      dataIndex: 'parameter',
+      key: 'parameter',
+      render: (text) => <Text strong>{text}</Text>
+    },
+    {
+      title: 'Result',
+      dataIndex: 'value',
+      key: 'value',
+      render: (text) => <Text className="font-mono">{text}</Text>
+    },
+    {
+      title: 'Unit',
+      dataIndex: 'unit',
+      key: 'unit'
+    },
+    {
+      title: 'Reference Range',
+      dataIndex: 'reference',
+      key: 'reference',
+      render: (text) => <Text type="secondary">{text}</Text>
+    }
+  ];
+
   return (
-    <div className="formatted-lab-results">
-      <table className="result-table">
-        <thead>
-          <tr>
-            <th>Test Parameter</th>
-            <th>Result</th>
-            <th>Unit</th>
-            <th>Reference Range</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(resultData).map(([paramName, paramData]) => (
-            <tr key={paramName} className="result-row">
-              <td className="param-name">{paramName}</td>
-              <td className="param-value">
-                {paramData.value !== undefined ? 
-                  (typeof paramData.value === 'number' ? paramData.value.toLocaleString() : paramData.value) 
-                  : 'N/A'}
-              </td>
-              <td className="param-unit">{paramData.unit || ''}</td>
-              <td className="param-range">{paramData.reference_range || 'Not specified'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table 
+      dataSource={dataSource} 
+      columns={columns} 
+      pagination={false} 
+      size="small"
+      className="mt-2"
+    />
   );
 };
 
@@ -62,17 +89,15 @@ const MedicalHistoryDetail = () => {
       try {
         const response = await axios.get(`${SERVICE_URLS.medicalRecords}/patients/${targetPatientId}/medical_history/`);
         setHistoryData(response.data);
-        console.log('Fetched Medical History Details:', response.data);
-
       } catch (err) {
         console.error('Error fetching medical history:', err);
-         if (err.response && err.response.data && err.response.data.error) {
-             setError(`Failed to fetch medical history: ${err.response.data.error}`);
-         } else if (err.request) {
-             setError('Failed to fetch medical history: Network error or service is down.');
-         } else {
-             setError('An unexpected error occurred.');
-         }
+        if (err.response && err.response.data && err.response.data.error) {
+          setError(`Failed to fetch medical history: ${err.response.data.error}`);
+        } else if (err.request) {
+          setError('Failed to fetch medical history: Network error or service is down.');
+        } else {
+          setError('An unexpected error occurred.');
+        }
       } finally {
         setLoading(false);
       }
@@ -80,225 +105,544 @@ const MedicalHistoryDetail = () => {
 
     const targetPatientId = patientId || (user && user.user_type === 'patient' ? user.id : null);
 
-     if (targetPatientId) {
-         console.log(`Fetching history for patient ID from URL (${patientId || 'N/A'}) or context (${user?.id || 'N/A'}): ${targetPatientId}`);
-         fetchHistory(targetPatientId);
-     } else if (!user) {
-         navigate('/login');
-         setLoading(false);
-     } else {
-         setError("Invalid access: Patient ID not specified.");
-         setLoading(false);
-     }
-
+    if (targetPatientId) {
+      fetchHistory(targetPatientId);
+    } else if (!user) {
+      navigate('/login');
+      setLoading(false);
+    } else {
+      setError("Invalid access: Patient ID not specified.");
+      setLoading(false);
+    }
   }, [user, navigate, patientId]);
 
-   if (loading) {
-     return <div className="loading">Loading Medical History...</div>;
-   }
+  const getBackPath = () => {
+    if (user && user.user_type === 'patient') return '/patient';
+    if (user && user.user_type === 'doctor') return '/doctor';
+    return '/';
+  };
 
-   if (error) {
-     return (
-       <div className="container">
-         <h2>Error</h2>
-         <p className="error-message">{error}</p>
-         <button 
-           onClick={() => navigate(user && user.user_type === 'patient' ? '/patient' : (user && user.user_type === 'doctor' ? '/doctor' : '/'))}
-           className="back-button"
-         >
-           Back to Dashboard
-         </button>
-       </div>
-     );
-   }
+  // Render loading state
+  if (loading) {
+    return (
+      <Layout className="min-h-screen">
+        <Content className="flex items-center justify-center">
+          <Spin size="large" />
+        </Content>
+      </Layout>
+    );
+  }
 
-   const {
-       patient_identity, patient_profile, vitals_history,
-       lab_orders, lab_results, doctor_reports,
-       _patient_identity_error, _patient_profile_error,
-       _vitals_history_error, _lab_orders_error, _lab_results_error,
-       _doctor_reports_error
-    } = historyData || {};
-
-   if (!historyData || Object.keys(historyData).length === 0) {
-        return (
-            <div className="container">
-                <h2>Medical History</h2>
-                <p>No medical history found for this patient.</p>
-                <button 
-                  onClick={() => navigate(user && user.user_type === 'patient' ? '/patient' : (user && user.user_type === 'doctor' ? '/doctor' : '/'))}
-                  className="back-button"
+  // Render error state
+  if (error) {
+    return (
+      <Layout className="min-h-screen">
+        <Content className="p-6">
+          <Card className="max-w-4xl mx-auto">
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              action={
+                <Button 
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => navigate(getBackPath())}
                 >
                   Back to Dashboard
-                </button>
+                </Button>
+              }
+            />
+          </Card>
+        </Content>
+      </Layout>
+    );
+  }
+
+  const {
+    patient_identity, patient_profile, vitals_history,
+    lab_orders, lab_results, doctor_reports,
+    _patient_identity_error, _patient_profile_error,
+    _vitals_history_error, _lab_orders_error, _lab_results_error,
+    _doctor_reports_error
+  } = historyData || {};
+
+  if (!historyData || Object.keys(historyData).length === 0) {
+    return (
+      <Layout className="min-h-screen">
+        <Content className="p-6">
+          <Card className="max-w-4xl mx-auto">
+            <Title level={2}>Medical History</Title>
+            <Text>No medical history found for this patient.</Text>
+            <div className="mt-4">
+              <Button 
+                icon={<ArrowLeftOutlined />}
+                onClick={() => navigate(getBackPath())}
+              >
+                Back to Dashboard
+              </Button>
             </div>
-        );
-   }
+          </Card>
+        </Content>
+      </Layout>
+    );
+  }
 
   return (
-    <div className="container medical-history">
-      <div className="medical-history-header">
-        <h2>Medical History for {patient_identity ? `${patient_identity.first_name} ${patient_identity.last_name}` : `Patient ID: ${patientId || user?.id || 'N/A'}`}</h2>
-        
-        {/* Button to go back */}
-        <button 
-          onClick={() => navigate(user && user.user_type === 'patient' ? '/patient' : (user && user.user_type === 'doctor' ? '/doctor' : '/'))}
-          className="back-button"
+    <Layout className="min-h-screen bg-gray-50">
+      <Header className="bg-blue-600 flex items-center justify-between px-6">
+        <Title level={3} className="text-white m-0">
+          Medical History for {patient_identity ? `${patient_identity.first_name} ${patient_identity.last_name}` : `Patient ID: ${patientId || user?.id || 'N/A'}`}
+        </Title>
+        <Button 
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate(getBackPath())}
         >
           Back to Dashboard
-        </button>
-      </div>
+        </Button>
+      </Header>
 
-      {/* Display Patient Identity & Profile */}
-      <div className="history-section patient-details">
-        <h3>Patient Details</h3>
-        {patient_identity ? (
-            <div>
-              <p><strong>Name:</strong> {patient_identity.first_name} {patient_identity.last_name}</p>
-              <p><strong>Username:</strong> {patient_identity.username}</p>
-              <p><strong>Email:</strong> {patient_identity.email}</p>
-            </div>
-        ) : (_patient_identity_error ? <p className="error-indicator">Error loading patient identity: {_patient_identity_error}</p> : <p>Patient identity not available.</p>)}
+      <Content className="p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Patient Details Card */}
+          <Card title={<><UserOutlined className="mr-2" />Patient Details</>}>
+            <Row gutter={[16, 16]}>
+              {patient_identity ? (
+                <>
+                  <Col span={8}>
+                    <Text strong>Name: </Text>
+                    <Text>{patient_identity.first_name} {patient_identity.last_name}</Text>
+                  </Col>
+                  <Col span={8}>
+                    <Text strong>Username: </Text>
+                    <Text>{patient_identity.username}</Text>
+                  </Col>
+                  <Col span={8}>
+                    <Text strong>Email: </Text>
+                    <Text>{patient_identity.email}</Text>
+                  </Col>
+                </>
+              ) : (
+                <Col span={24}>
+                  {_patient_identity_error ? (
+                    <Alert
+                      message="Error loading patient identity"
+                      description={_patient_identity_error}
+                      type="error"
+                      showIcon
+                    />
+                  ) : (
+                    <Text type="secondary">Patient identity not available.</Text>
+                  )}
+                </Col>
+              )}
 
-        {patient_profile ? (
-            <div>
-              <p><strong>Date of Birth:</strong> {patient_profile.date_of_birth || 'N/A'}</p>
-              <p><strong>Address:</strong> {patient_profile.address || 'N/A'}</p>
-              <p><strong>Phone:</strong> {patient_profile.phone_number || 'N/A'}</p>
-            </div>
-        ) : (_patient_profile_error ? <p className="error-indicator">Error loading patient profile: {_patient_profile_error}</p> : <p>Patient profile not available.</p>)}
-      </div>
+              {patient_profile ? (
+                <>
+                  <Col span={8}>
+                    <Text strong>Date of Birth: </Text>
+                    <Text>{patient_profile.date_of_birth || 'N/A'}</Text>
+                  </Col>
+                  <Col span={8}>
+                    <Text strong>Phone: </Text>
+                    <Text>{patient_profile.phone_number || 'N/A'}</Text>
+                  </Col>
+                  <Col span={8}>
+                    <Text strong>Address: </Text>
+                    <Text>{patient_profile.address || 'N/A'}</Text>
+                  </Col>
+                </>
+              ) : (
+                <Col span={24}>
+                  {_patient_profile_error ? (
+                    <Alert
+                      message="Error loading patient profile"
+                      description={_patient_profile_error}
+                      type="error"
+                      showIcon
+                      className="mt-4"
+                    />
+                  ) : (
+                    <Text type="secondary">Patient profile not available.</Text>
+                  )}
+                </Col>
+              )}
+            </Row>
+          </Card>
 
-      <hr />
-
-      {/* Display Vitals History */}
-      <div className="history-section">
-        <h3>Vitals History</h3>
-        {vitals_history && vitals_history.length > 0 ? (
-          <ul className="vitals-list">
-            {vitals_history.map(v => (
-              <li key={v.id} className="vitals-item">
-                <div className="vitals-date">
-                  {new Date(v.timestamp).toLocaleString()} by Nurse {v.nurse ? `${v.nurse.first_name} ${v.nurse.last_name}` : (v._nurse_identity_error || 'N/A')}
-                </div>
-                <ul>
-                  {v.temperature_celsius !== null && <li>Temp: {v.temperature_celsius}°C</li>}
-                  {(v.blood_pressure_systolic !== null || v.blood_pressure_diastolic !== null) && <li>BP: {v.blood_pressure_systolic || '?'} / {v.blood_pressure_diastolic || '?'} mmHg</li>}
-                  {v.heart_rate_bpm !== null && <li>HR: {v.heart_rate_bpm} bpm</li>}
-                  {v.respiratory_rate_bpm !== null && <li>RR: {v.respiratory_rate_bpm} bpm</li>}
-                  {v.oxygen_saturation_percentage !== null && <li>O₂ Sat: {v.oxygen_saturation_percentage}%</li>}
-                  {v.notes && <li>Notes: {v.notes}</li>}
-                </ul>
-                {v._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing: {v._patient_identity_error}</p>}
-                {v._nurse_identity_error && <p className="warning-indicator">Warning: Nurse identity missing: {v._nurse_identity_error}</p>}
-              </li>
-            ))}
-          </ul>
-        ) : (_vitals_history_error ? <p className="error-indicator">Error loading vitals history: {_vitals_history_error}</p> : <p>No vitals history available.</p>)}
-      </div>
-
-      <hr />
-
-      {/* Display Lab Orders */}
-      <div className="history-section">
-        <h3>Lab Orders</h3>
-        {lab_orders && lab_orders.length > 0 ? (
-           <ul className="lab-orders-list">
-               {lab_orders.map(order => (
-                   <li key={order.id} className="lab-order-item">
-                       <div className="lab-order-date">
-                         <strong>{order.test_type}</strong> ({order.status}) on {new Date(order.order_date).toLocaleDateString()}
-                       </div>
-                       <p>Ordered by Dr. {order.doctor ? `${order.doctor.first_name} ${order.doctor.last_name}` : (order._doctor_identity_error || 'N/A')}</p>
-                       {order.notes && <p>Doctor's Notes: {order.notes}</p>}
-                       {order._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing for this order: {order._patient_identity_error}</p>}
-                       {order._doctor_identity_error && <p className="warning-indicator">Warning: Doctor identity missing for this order: {order._doctor_identity_error}</p>}
-                       {order._order_error && <p className="error-indicator">Error loading order details: {order._order_error}</p>}
-                   </li>
-               ))}
-           </ul>
-       ) : (_lab_orders_error ? <p className="error-indicator">Error loading lab orders: {_lab_orders_error}</p> : <p>No lab orders found.</p>)}
-      </div>
-
-      <hr/>
-
-      {/* Display Lab Results - IMPROVED SECTION */}
-      <div className="history-section">
-        <h3>Lab Results</h3>
-        {lab_results && lab_results.length > 0 ? (
-            <ul className="lab-results-list">
-                {lab_results.map(result => (
-                    <li key={result.id} className="lab-result-item">
-                        <div className="lab-result-date">
-                          <strong>{result.order ? result.order.test_type : 'Unknown Test'}</strong> ({result.status}) on {new Date(result.result_date).toLocaleDateString()}
+          {/* Vitals History Card */}
+          <Card title={<><HeartOutlined className="mr-2" />Vitals History</>}>
+            {vitals_history && vitals_history.length > 0 ? (
+              <List
+                dataSource={vitals_history}
+                renderItem={vital => (
+                  <List.Item>
+                    <Card className="w-full shadow-sm border-l-4 border-l-red-500">
+                      <div className="mb-3">
+                        <Text strong className="text-red-600">
+                          <ClockCircleOutlined className="mr-2" />
+                          {new Date(vital.timestamp).toLocaleString()}
+                        </Text>
+                        <Text className="ml-4">
+                          by Nurse {vital.nurse ? 
+                            `${vital.nurse.first_name} ${vital.nurse.last_name}` : 
+                            (vital._nurse_identity_error || 'N/A')}
+                        </Text>
+                      </div>
+                      
+                      <Row gutter={[16, 8]}>
+                        {vital.temperature_celsius !== null && (
+                          <Col span={12} lg={8}>
+                            <Text type="secondary">Temperature: </Text>
+                            <Text strong>{vital.temperature_celsius}°C</Text>
+                          </Col>
+                        )}
+                        {(vital.blood_pressure_systolic !== null || vital.blood_pressure_diastolic !== null) && (
+                          <Col span={12} lg={8}>
+                            <Text type="secondary">Blood Pressure: </Text>
+                            <Text strong>{vital.blood_pressure_systolic || '?'}/{vital.blood_pressure_diastolic || '?'} mmHg</Text>
+                          </Col>
+                        )}
+                        {vital.heart_rate_bpm !== null && (
+                          <Col span={12} lg={8}>
+                            <Text type="secondary">Heart Rate: </Text>
+                            <Text strong>{vital.heart_rate_bpm} bpm</Text>
+                          </Col>
+                        )}
+                        {vital.respiratory_rate_bpm !== null && (
+                          <Col span={12} lg={8}>
+                            <Text type="secondary">Respiratory Rate: </Text>
+                            <Text strong>{vital.respiratory_rate_bpm} bpm</Text>
+                          </Col>
+                        )}
+                        {vital.oxygen_saturation_percentage !== null && (
+                          <Col span={12} lg={8}>
+                            <Text type="secondary">O₂ Saturation: </Text>
+                            <Text strong>{vital.oxygen_saturation_percentage}%</Text>
+                          </Col>
+                        )}
+                      </Row>
+                      
+                      {vital.notes && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded">
+                          <Text strong>Notes: </Text>
+                          <Text italic>{vital.notes}</Text>
                         </div>
-                        <p>Recorded by Lab Tech {result.lab_technician ? `${result.lab_technician.first_name} ${result.lab_technician.last_name}` : (result._lab_technician_identity_error || 'N/A')}</p>
+                      )}
+                      
+                      {/* Display errors if present */}
+                      {(vital._patient_identity_error || vital._nurse_identity_error) && (
+                        <div className="mt-3 space-y-2">
+                          {vital._patient_identity_error && (
+                            <Alert
+                              message="Warning"
+                              description={`Patient identity missing: ${vital._patient_identity_error}`}
+                              type="warning"
+                              showIcon
+                              size="small"
+                            />
+                          )}
+                          {vital._nurse_identity_error && (
+                            <Alert
+                              message="Warning"
+                              description={`Nurse identity missing: ${vital._nurse_identity_error}`}
+                              type="warning"
+                              showIcon
+                              size="small"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <div className="text-center py-8">
+                {_vitals_history_error ? (
+                  <Alert
+                    message="Error loading vitals history"
+                    description={_vitals_history_error}
+                    type="error"
+                    showIcon
+                  />
+                ) : (
+                  <Text type="secondary">No vitals history available.</Text>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* Lab Orders Card */}
+          <Card title={<><ExperimentOutlined className="mr-2" />Lab Orders</>}>
+            {lab_orders && lab_orders.length > 0 ? (
+              <List
+                dataSource={lab_orders}
+                renderItem={order => (
+                  <List.Item>
+                    <Card className="w-full shadow-sm border-l-4 border-l-green-500">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Title level={5} className="m-0">{order.test_type}</Title>
+                        <Tag color={order.status === 'ordered' ? 'blue' : order.status === 'completed' ? 'green' : 'orange'}>
+                          {order.status.toUpperCase()}
+                        </Tag>
+                      </div>
+                      
+                      <Space direction="vertical" size="small" className="w-full">
+                        <div>
+                          <Text strong>Ordered on: </Text>
+                          <Text>{new Date(order.order_date).toLocaleDateString()}</Text>
+                          <Text className="mx-2">by</Text>
+                          <Text strong>Dr. </Text>
+                          <Text>
+                            {order.doctor ? 
+                              `${order.doctor.first_name} ${order.doctor.last_name}` : 
+                              (order._doctor_identity_error || 'N/A')}
+                          </Text>
+                        </div>
                         
-                        {/* Replace JSON.stringify with the formatted display */}
-                        <div className="result-data">
+                        {order.notes && (
+                          <div className="p-3 bg-blue-50 rounded">
+                            <Text strong>Doctor's Notes: </Text>
+                            <Text italic>{order.notes}</Text>
+                          </div>
+                        )}
+                      </Space>
+                      
+                      {/* Display errors if present */}
+                      <div className="mt-3 space-y-2">
+                        {order._patient_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Patient identity missing for this order: ${order._patient_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {order._doctor_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Doctor identity missing for this order: ${order._doctor_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {order._order_error && (
+                          <Alert
+                            message="Error"
+                            description={`Error loading order details: ${order._order_error}`}
+                            type="error"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <div className="text-center py-8">
+                {_lab_orders_error ? (
+                  <Alert
+                    message="Error loading lab orders"
+                    description={_lab_orders_error}
+                    type="error"
+                    showIcon
+                  />
+                ) : (
+                  <Text type="secondary">No lab orders found.</Text>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* Lab Results Card */}
+          <Card title={<><ExperimentOutlined className="mr-2" />Lab Results</>}>
+            {lab_results && lab_results.length > 0 ? (
+              <List
+                dataSource={lab_results}
+                renderItem={result => (
+                  <List.Item>
+                    <Card className="w-full shadow-sm border-l-4 border-l-orange-500">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Title level={5} className="m-0">
+                          {result.order ? result.order.test_type : 'Unknown Test'}
+                        </Title>
+                        <Tag color={result.status === 'final' ? 'green' : result.status === 'preliminary' ? 'orange' : 'blue'}>
+                          {result.status.toUpperCase()}
+                        </Tag>
+                      </div>
+                      
+                      <Space direction="vertical" size="small" className="w-full">
+                        <div>
+                          <Text strong>Result Date: </Text>
+                          <Text>{new Date(result.result_date).toLocaleDateString()}</Text>
+                          <Text className="mx-2">by</Text>
+                          <Text strong>Lab Tech </Text>
+                          <Text>
+                            {result.lab_technician ? 
+                              `${result.lab_technician.first_name} ${result.lab_technician.last_name}` : 
+                              (result._lab_technician_identity_error || 'N/A')}
+                          </Text>
+                        </div>
+                        
+                        {/* Lab Results Table */}
+                        <div className="mt-3">
+                          <Text strong className="mb-2 block">Test Results:</Text>
                           {formatLabResults(result.result_data)}
                         </div>
-
-                        {result.notes && <p>Technician's Notes: {result.notes}</p>}
-
-                        {result.order && (
-                            <div>
-                                <p>Order Date: {new Date(result.order.order_date).toLocaleDateString()}</p>
-                                <p>Ordered by Dr. {result.order.doctor ? `${result.order.doctor.first_name} ${result.order.doctor.last_name}` : (result.order._doctor_identity_error || 'N/A')}</p>
-                            </div>
+                        
+                        {result.notes && (
+                          <div className="p-3 bg-orange-50 rounded mt-3">
+                            <Text strong>Technician's Notes: </Text>
+                            <Text italic>{result.notes}</Text>
+                          </div>
                         )}
-                        {result._order_error && <p className="error-indicator">Error loading associated order: {result._order_error}</p>}
-                        {result.order && result.order._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing for this order: {result.order._patient_identity_error}</p>}
-                        {result.order && result.order._doctor_identity_error && <p className="warning-indicator">Warning: Doctor identity missing for this order: {result.order._doctor_identity_error}</p>}
-                        {result._lab_technician_identity_error && <p className="warning-indicator">Warning: Lab Tech identity missing: {result._lab_technician_identity_error}</p>}
-                    </li>
-                ))}
-            </ul>
-       ) : (_lab_results_error ? <p className="error-indicator">Error loading lab results: {_lab_results_error}</p> : <p>No lab results found.</p>)}
-      </div>
+                        
+                        {result.order && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded">
+                            <Text strong>Order Details: </Text>
+                            <br />
+                            <Text>Order Date: {new Date(result.order.order_date).toLocaleDateString()}</Text>
+                            <br />
+                            <Text>
+                              Ordered by Dr. {result.order.doctor ? 
+                                `${result.order.doctor.first_name} ${result.order.doctor.last_name}` : 
+                                (result.order._doctor_identity_error || 'N/A')}
+                            </Text>
+                          </div>
+                        )}
+                      </Space>
+                      
+                      {/* Display errors if present */}
+                      <div className="mt-3 space-y-2">
+                        {result._order_error && (
+                          <Alert
+                            message="Error"
+                            description={`Error loading associated order: ${result._order_error}`}
+                            type="error"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {result.order && result.order._patient_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Patient identity missing for this order: ${result.order._patient_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {result.order && result.order._doctor_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Doctor identity missing for this order: ${result.order._doctor_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {result._lab_technician_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Lab Tech identity missing: ${result._lab_technician_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <div className="text-center py-8">
+                {_lab_results_error ? (
+                  <Alert
+                    message="Error loading lab results"
+                    description={_lab_results_error}
+                    type="error"
+                    showIcon
+                  />
+                ) : (
+                  <Text type="secondary">No lab results found.</Text>
+                )}
+              </div>
+            )}
+          </Card>
 
-      <hr/>
-
-      {/* Display Doctor Reports */}
-      <div className="history-section">
-        <h3>Doctor Reports</h3>
-        {doctor_reports && doctor_reports.length > 0 ? (
-           <ul className="doctor-reports-list">
-               {doctor_reports.map(report => (
-                   <li key={report.id} className="doctor-report-item">
-                       <div className="report-date">
-                         <strong>{report.title}</strong> on {new Date(report.report_date).toLocaleDateString()}
-                       </div>
-                       <p>By Dr. {report.doctor ? `${report.doctor.first_name} ${report.doctor.last_name}` : (report._doctor_identity_error || 'N/A')}</p>
-                       <p>Report: {report.content}</p>
-                       {report._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing for this report: {report._patient_identity_error}</p>}
-                       {report._doctor_identity_error && <p className="warning-indicator">Warning: Doctor identity missing for this report: {report._doctor_identity_error}</p>}
-                   </li>
-               ))}
-           </ul>
-       ) : (_doctor_reports_error ? <p className="error-indicator">Error loading doctor reports: {_doctor_reports_error}</p> : <p>No doctor reports found.</p>)}
-      </div>
-
-      <hr />
-
-      {/* Add section for Prescriptions when implemented
-      <div className="history-section">
-        <h3>Prescriptions (To Be Implemented)</h3>
-        <p>Prescription history will appear here.</p>
-      </div> */}
-
-      <hr />
-
-      {/* Navigation buttons */}
-      <div className="navigation-buttons">
-        <button 
-          onClick={() => navigate(user && user.user_type === 'patient' ? '/patient' : (user && user.user_type === 'doctor' ? '/doctor' : '/'))}
-          className="back-button"
-        >
-          Back to Dashboard
-        </button>
-      </div>
-    </div>
+          {/* Doctor Reports Card */}
+          <Card title={<><FileTextOutlined className="mr-2" />Doctor Reports</>}>
+            {doctor_reports && doctor_reports.length > 0 ? (
+              <List
+                dataSource={doctor_reports}
+                renderItem={report => (
+                  <List.Item>
+                    <Card className="w-full shadow-sm border-l-4 border-l-blue-500">
+                      <div className="mb-3">
+                        <Title level={5} className="text-blue-600 m-0">{report.title}</Title>
+                        <Text type="secondary" className="block mt-1">
+                          {new Date(report.report_date).toLocaleDateString()}
+                          <Text className="mx-2">by</Text>
+                          <Text strong>Dr. </Text>
+                          {report.doctor ? 
+                            `${report.doctor.first_name} ${report.doctor.last_name}` : 
+                            (report._doctor_identity_error || 'N/A')}
+                        </Text>
+                      </div>
+                      
+                      <div className="p-4 bg-blue-50 rounded">
+                        <Text>{report.content}</Text>
+                      </div>
+                      
+                      {/* Display errors if present */}
+                      <div className="mt-3 space-y-2">
+                        {report._patient_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Patient identity missing for this report: ${report._patient_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {report._doctor_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Doctor identity missing for this report: ${report._doctor_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <div className="text-center py-8">
+                {_doctor_reports_error ? (
+                  <Alert
+                    message="Error loading doctor reports"
+                    description={_doctor_reports_error}
+                    type="error"
+                    showIcon
+                  />
+                ) : (
+                  <Text type="secondary">No doctor reports found.</Text>
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
+      </Content>
+    </Layout>
   );
 };
 

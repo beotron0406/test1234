@@ -1,18 +1,31 @@
-// src/components/LabTechDashboard.js (with CSS applied)
+// src/components/LabTechDashboard.js
 import React, { useState, useEffect } from 'react';
+import {
+  Layout, Typography, Card, Button, Form, Input, 
+  Alert, Space, List, Select, Modal, Divider,
+  Row, Col, Spin, message, InputNumber, DatePicker, Table, Tag
+} from 'antd';
+import {
+  UserOutlined, ExperimentOutlined, PlusOutlined, 
+  ClockCircleOutlined, CheckCircleOutlined, DeleteOutlined
+} from '@ant-design/icons';
 import { useUser } from '../context/UserContext';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import '../css/index.css'; // Import CSS
+import dayjs from 'dayjs';
 
-// Assume service ports are defined somewhere accessible
+const { Header, Content } = Layout;
+const { Title, Text } = Typography;
+const { TextArea } = Input;
+const { Option } = Select;
+
+// Service URLs
 const SERVICE_URLS = {
-  lab: 'http://localhost:8006/api', // Lab Service API base URL
-  patient: 'http://localhost:8001/api', // Patient Service API base URL (needed to list patients)
-  // Identity service URL is called by the Lab Service endpoints for aggregation
+  lab: 'http://localhost:8006/api',
+  patient: 'http://localhost:8001/api',
 };
 
-// Common lab test parameters for different test types
+// Common lab test templates
 const TEST_TEMPLATES = {
   'Complete Blood Count': [
     { name: 'Hemoglobin', defaultUnit: 'g/dL', defaultRange: '13.5-17.5' },
@@ -46,51 +59,65 @@ const TEST_TEMPLATES = {
   ]
 };
 
-// --- Helper function to format lab result data for display ---
+// Helper function to format lab result data for display
 const formatLabResultData = (resultData, testType = 'Unknown Test Type') => {
-    if (!resultData || typeof resultData !== 'object') {
-        // Fallback for non-object data or null/undefined
-        return (
-            <div className="result-data">
-                <p><strong>Result Data (Raw):</strong></p>
-                <pre>
-                     {JSON.stringify(resultData, null, 2)}
-                </pre>
-            </div>
-        );
-    }
-
-    // Hardcoded formatting for specific test types based on structure or testType string
-    if (testType.toLowerCase().includes('blood count') || (resultData.Hemoglobin && resultData.Platelets && resultData['White Blood Cells'])) {
-        return (
-            <div className="result-data">
-                <p><strong>CBC Results:</strong></p>
-                <ul>
-                    {Object.entries(resultData).map(([key, value]) => (
-                        <li key={key}>
-                            {key}: {value.value !== undefined ? value.value : 'N/A'} {value.unit || ''} {value.reference_range ? `(Ref: ${value.reference_range})` : ''}
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        );
-    }
-
-    // Fallback: Display as formatted JSON if no specific type is matched
+  if (!resultData || typeof resultData !== 'object') {
     return (
-        <div className="result-data">
-            <p><strong>Result Data (Generic):</strong></p>
-            <ul>
-                {Object.entries(resultData).map(([key, value]) => (
-                    <li key={key}>
-                        <strong>{key}:</strong> {value.value !== undefined ? `${value.value} ${value.unit || ''}` : JSON.stringify(value)} {value.reference_range ? `(Ref: ${value.reference_range})` : ''}
-                    </li>
-                ))}
-            </ul>
-        </div>
+      <div className="p-3 bg-gray-50 rounded">
+        <Text strong>Result Data (Raw):</Text>
+        <pre className="mt-2 text-sm">{JSON.stringify(resultData, null, 2)}</pre>
+      </div>
     );
-};
+  }
 
+  const dataSource = Object.entries(resultData).map(([key, value], index) => ({
+    key: index,
+    parameter: key,
+    value: value.value !== undefined ? value.value : 'N/A',
+    unit: value.unit || '',
+    reference: value.reference_range || ''
+  }));
+
+  const columns = [
+    {
+      title: 'Parameter',
+      dataIndex: 'parameter',
+      key: 'parameter',
+      render: (text) => <Text strong>{text}</Text>
+    },
+    {
+      title: 'Value',
+      dataIndex: 'value',
+      key: 'value',
+      render: (text) => <Text className="font-mono">{text}</Text>
+    },
+    {
+      title: 'Unit',
+      dataIndex: 'unit',
+      key: 'unit'
+    },
+    {
+      title: 'Reference Range',
+      dataIndex: 'reference',
+      key: 'reference',
+      render: (text) => <Text type="secondary">{text}</Text>
+    }
+  ];
+
+  return (
+    <div className="mt-3">
+      <Text strong className="block mb-2">
+        {testType.toLowerCase().includes('blood count') ? 'CBC Results:' : 'Test Results:'}
+      </Text>
+      <Table 
+        dataSource={dataSource} 
+        columns={columns} 
+        pagination={false} 
+        size="small"
+      />
+    </div>
+  );
+};
 
 const LabTechDashboard = () => {
   const { user, logout } = useUser();
@@ -98,88 +125,73 @@ const LabTechDashboard = () => {
 
   // State for fetched data
   const [labTechProfile, setLabTechProfile] = useState(null);
-  const [pendingOrders, setPendingOrders] = useState([]); // Lab Orders needing results
-  const [recordedResults, setRecordedResults] = useState([]); // Results recorded by this lab tech
+  const [pendingOrders, setPendingOrders] = useState([]);
+  const [recordedResults, setRecordedResults] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // General fetch error
+  const [error, setError] = useState(null);
 
-  // State for recording result functionality
-  const [isRecordingResult, setIsRecordingResult] = useState(false); // Controls form visibility
-  const [selectedOrderId, setSelectedOrderId] = useState(''); // Selected Lab Order ID
-  const [resultDate, setResultDate] = useState(''); // Result date input (ISO 8601 string)
-  const [resultStatus, setResultStatus] = useState('final'); // Status for the result (default 'final')
-  const [resultNotes, setResultNotes] = useState('');
-  const [recordingLoading, setRecordingLoading] = useState(false); // Loading state for recording action
-  const [recordingError, setRecordingError] = useState(null); // Error state for recording action
-  const [recordingSuccess, setRecordingSuccess] = useState(null); // Success message for recording
+  // Modal and form states
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [resultForm] = Form.useForm();
+  const [resultLoading, setResultLoading] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   
-  // New state for structured test parameters (replacing the resultData JSON string)
-  const [testParameters, setTestParameters] = useState([]); 
+  // Test parameters state
+  const [testParameters, setTestParameters] = useState([]);
   const [customParamName, setCustomParamName] = useState('');
   const [selectedTestType, setSelectedTestType] = useState('');
 
-  // --- Data Fetching using useEffect (unchanged) ---
+  // Data Fetching
   useEffect(() => {
     const fetchLabTechData = async () => {
       setLoading(true);
       setError(null);
 
-      const labTechUserId = user.id; // Get the logged-in lab tech's UUID
+      const labTechUserId = user.id;
 
       try {
         // 1. Fetch Lab Technician Profile
         const profileResponse = await axios.get(`${SERVICE_URLS.lab}/labtechs/${labTechUserId}/`);
         setLabTechProfile(profileResponse.data);
-        console.log('Fetched Lab Technician Profile:', profileResponse.data);
 
         // 2. Fetch Pending Lab Orders
         const ordersResponse = await axios.get(`${SERVICE_URLS.lab}/orders/`, {
-          params: { status: 'ordered' } // Fetch orders with 'ordered' status
+          params: { status: 'ordered' }
         });
-        // Order orders by date
         const sortedOrders = ordersResponse.data.sort((a, b) =>
-             new Date(a.order_date) - new Date(b.order_date) // Oldest first
-         );
+          new Date(a.order_date) - new Date(b.order_date)
+        );
         setPendingOrders(sortedOrders);
-        console.log('Fetched Pending Lab Orders:', sortedOrders);
 
         // 3. Fetch Lab Results Recorded by This Lab Technician
         const resultsResponse = await axios.get(`${SERVICE_URLS.lab}/results/`, {
-          params: { lab_technician_user_id: labTechUserId } // Send lab_technician_user_id as a query parameter
+          params: { lab_technician_user_id: labTechUserId }
         });
-        // Results are already ordered by date descending in the backend
         setRecordedResults(resultsResponse.data);
-        console.log('Fetched Lab Results recorded by tech:', resultsResponse.data);
-
       } catch (err) {
         console.error('Error fetching lab technician data:', err);
-         if (err.response && err.response.data && err.response.data.error) {
-             setError(`Failed to fetch lab technician data: ${err.response.data.error}`);
-         } else if (err.request) {
-             setError('Failed to fetch lab technician data: Network error or service is down.');
-         } else {
-             setError('An unexpected error occurred while fetching data.');
-         }
+        if (err.response && err.response.data && err.response.data.error) {
+          setError(`Failed to fetch lab technician data: ${err.response.data.error}`);
+        } else if (err.request) {
+          setError('Failed to fetch lab technician data: Network error or service is down.');
+        } else {
+          setError('An unexpected error occurred while fetching data.');
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    // Only fetch data if the user object (with ID) is available AND the user type is lab_technician
     if (user && user.id && user.user_type === 'lab_technician') {
-       console.log('Fetching data for lab technician:', user.id);
-       fetchLabTechData();
+      fetchLabTechData();
     } else {
-       console.log('User not available or not lab technician. Skipping data fetch.');
-       setLoading(false);
+      setLoading(false);
     }
-
-  }, [user, navigate]); // Include navigate in dependency array
+  }, [user, navigate]);
 
   // Handle applying a test template
   const applyTestTemplate = (templateName) => {
     if (TEST_TEMPLATES[templateName]) {
-      // Map template parameters to state format with empty values
       const newParams = TEST_TEMPLATES[templateName].map(param => ({
         name: param.name,
         value: '',
@@ -189,12 +201,6 @@ const LabTechDashboard = () => {
       setTestParameters(newParams);
       setSelectedTestType(templateName);
     }
-  };
-
-  // Get test type from selected order
-  const getTestTypeFromOrder = (orderId) => {
-    const order = pendingOrders.find(o => o.id === orderId);
-    return order ? order.test_type : '';
   };
 
   // Handle parameter value changes
@@ -222,58 +228,47 @@ const LabTechDashboard = () => {
     setTestParameters(updatedParams);
   };
 
-  // --- Handle Starting Record Result (modified) ---
-  const handleStartRecordResult = (orderId = '') => { // Optional orderId to pre-select
-      setSelectedOrderId(orderId); // Pre-select the order
-      setResultDate(new Date().toISOString().slice(0, 16)); // Default to current time for datetime-local
-      setResultStatus('final'); // Default status
-      setResultNotes(''); // Clear notes
-      setTestParameters([]); // Clear parameters
-      setCustomParamName('');
-      setRecordingError(null);
-      setRecordingSuccess(null);
-      setIsRecordingResult(true); // Show the form
+  // Handle Start Record Result
+  const handleStartRecordResult = (order = null) => {
+    setSelectedOrder(order);
+    setTestParameters([]);
+    setCustomParamName('');
+    setIsResultModalOpen(true);
+    
+    resultForm.setFieldsValue({
+      lab_order_id: order?.id || '',
+      result_date: dayjs(),
+      status: 'final'
+    });
 
-      // If an orderId was provided, find the order details to potentially display patient name
-      // This requires having the pendingOrders list loaded
-      if (orderId) {
-        const order = pendingOrders.find(o => o.id === orderId);
-        if (order) {
-          console.log('Recording result for order:', order);
-          // Set the test type from the order and apply template if available
-          const testType = order.test_type;
-          setSelectedTestType(testType);
-          
-          // If we have a template for this test type, apply it
-          if (TEST_TEMPLATES[testType]) {
-            applyTestTemplate(testType);
-          }
-        }
+    if (order) {
+      const testType = order.test_type;
+      setSelectedTestType(testType);
+      
+      // If we have a template for this test type, apply it
+      if (TEST_TEMPLATES[testType]) {
+        applyTestTemplate(testType);
       }
+    }
   };
 
-  // --- Handle Submit Result (modified) ---
-  const handleSubmitResult = async (e) => {
-    e.preventDefault();
+  // Handle Submit Result
+  const handleSubmitResult = async (values) => {
+    setResultLoading(true);
 
-    setRecordingLoading(true);
-    setRecordingError(null);
-    setRecordingSuccess(null);
+    const labTechUserId = user.id;
 
-    const labTechUserId = user.id; // The logged-in lab tech's ID
-
-    // Basic validation
-    if (!selectedOrderId || !resultDate || testParameters.length === 0) {
-      setRecordingError('Please select an order, specify a result date, and add at least one test parameter.');
-      setRecordingLoading(false);
+    // Validate test parameters
+    if (testParameters.length === 0) {
+      message.error('Please add at least one test parameter.');
+      setResultLoading(false);
       return;
     }
 
-    // Check if all parameters have values
     const missingValues = testParameters.some(param => !param.value);
     if (missingValues) {
-      setRecordingError('Please enter values for all test parameters.');
-      setRecordingLoading(false);
+      message.error('Please enter values for all test parameters.');
+      setResultLoading(false);
       return;
     }
 
@@ -287,394 +282,539 @@ const LabTechDashboard = () => {
       };
     });
 
-    // Prepare result date for backend (ISO 8601 expected)
-    let resultDateToSend = resultDate;
-    if (resultDateToSend.length === 16) { // If HH:MM format
-      resultDateToSend += ':00Z'; // Add seconds and assume UTC
-    }
-
     const resultPayload = {
-      lab_order_id: selectedOrderId,
+      lab_order_id: values.lab_order_id,
       lab_technician_user_id: labTechUserId,
-      result_date: resultDateToSend,
-      result_data: resultData, // Send structured data object
-      status: resultStatus,
-      notes: resultNotes || null,
+      result_date: values.result_date.toISOString(),
+      result_data: resultData,
+      status: values.status,
+      notes: values.notes || null,
     };
 
     try {
-      // Call the Lab Service POST /api/results/ endpoint
       const response = await axios.post(`${SERVICE_URLS.lab}/results/`, resultPayload);
 
       if (response.status === 201) {
-        setRecordingSuccess('Lab result recorded successfully!');
-        console.log('Result created:', response.data);
-
-        // Optional: Refetch pending orders (the completed one should disappear)
+        message.success('Lab result recorded successfully!');
+        
+        // Refetch pending orders and recorded results
         const ordersResponse = await axios.get(`${SERVICE_URLS.lab}/orders/`, {
-          params: { status: 'ordered' } // Refetch *only* ordered status
+          params: { status: 'ordered' }
         });
         const sortedOrders = ordersResponse.data.sort((a, b) =>
           new Date(a.order_date) - new Date(b.order_date)
         );
-        setPendingOrders(sortedOrders); // Update pending orders list
-        console.log('Refetched Pending Orders:', sortedOrders);
+        setPendingOrders(sortedOrders);
 
-        // Optional: Refetch recorded results (the new one should appear)
         const resultsResponse = await axios.get(`${SERVICE_URLS.lab}/results/`, {
           params: { lab_technician_user_id: labTechUserId }
         });
-        setRecordedResults(resultsResponse.data); // Update recorded results list
-        console.log('Refetched Lab Results recorded by tech:', resultsResponse.data);
-
-        // Reset form state and close form
-        setSelectedOrderId('');
-        setResultDate(''); 
+        setRecordedResults(resultsResponse.data);
+        
+        setIsResultModalOpen(false);
+        resultForm.resetFields();
         setTestParameters([]);
-        setResultStatus('final'); 
-        setResultNotes('');
-        setIsRecordingResult(false);
-
-      } else {
-        setRecordingError('Failed to record result: Unexpected response.');
+        setSelectedOrder(null);
       }
-
     } catch (err) {
       console.error('Recording result failed:', err);
-      if (err.response) {
-        if (err.response.data && err.response.data.error) {
-          setRecordingError(`Failed to record result: ${err.response.data.error}`);
-        } else {
-          setRecordingError(`Failed to record result: ${err.response.status} ${err.response.statusText}`);
-        }
-      } else if (err.request) {
-        setRecordingError('Failed to record result: Could not connect to the lab service.');
+      if (err.response && err.response.data && err.response.data.error) {
+        message.error(`Failed to record result: ${err.response.data.error}`);
       } else {
-        setRecordingError('An unexpected error occurred while recording the result.');
+        message.error('Failed to record result. Please try again.');
       }
     } finally {
-      setRecordingLoading(false);
+      setResultLoading(false);
     }
   };
 
-
-  // --- Early Return for Redirection (Same) ---
+  // Early return for redirection
   if (!user || user.user_type !== 'lab_technician') {
     navigate('/login');
     return <div>Redirecting...</div>;
   }
 
-
-  // --- Render Loading/Error States (Same) ---
+  // Render loading state
   if (loading) {
-    return <div className="loading">Loading Lab Technician Dashboard...</div>;
-  }
-
-  if (error) {
     return (
-      <div className="container">
-        <h2>Error</h2>
-        <p className="error-message">{error}</p>
-        <button onClick={logout} className="danger">Logout</button>
-      </div>
+      <Layout className="min-h-screen">
+        <Content className="flex items-center justify-center">
+          <Spin size="large" />
+        </Content>
+      </Layout>
     );
   }
 
-  // --- Render Data and Forms ---
+  // Render error state
+  if (error) {
+    return (
+      <Layout className="min-h-screen">
+        <Content className="p-6">
+          <Card className="max-w-4xl mx-auto">
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              action={<Button danger onClick={logout}>Logout</Button>}
+            />
+          </Card>
+        </Content>
+      </Layout>
+    );
+  }
+
   return (
-    <div className="container lab-tech-dashboard">
-      <h2>Lab Technician Dashboard</h2>
+    <Layout className="min-h-screen bg-gray-50">
+      <Header className="bg-teal-600 flex items-center justify-between px-6">
+        <Title level={3} className="text-white m-0">
+          Healthcare Management System - Lab Technician
+        </Title>
+        <Button danger onClick={logout}>Logout</Button>
+      </Header>
 
-      {/* Display Lab Technician Profile */}
-      {labTechProfile ? (
-        <div className="profile-section">
-          <h3>Your Profile</h3>
-          <p><strong>Name:</strong> {labTechProfile.first_name} {labTechProfile.last_name}</p>
-          <p><strong>Username:</strong> {labTechProfile.username}</p>
-          <p><strong>Employee ID:</strong> {labTechProfile.employee_id || 'N/A'}</p>
-          {/* Show _identity_error if Identity call failed during aggregation */}
-          {labTechProfile._identity_error && <p className="warning-message">Warning: Could not load all identity data: {labTechProfile._identity_error}</p>}
-        </div>
-      ) : (
-        !loading && <p>Could not load profile data.</p>
-      )}
-
-      <hr />
-
-       {/* Record Lab Result Section */}
-        <div className="record-result-section">
-          <h3>Record Lab Result</h3>
-          {!isRecordingResult ? (
-              <button onClick={() => handleStartRecordResult()}>Record New Result</button>
-          ) : (
-              <div className="record-form">
-                  <h4>Enter Lab Result Details {selectedOrderId && ` for Order ${selectedOrderId.slice(0, 8)}...`}</h4>
-                  <form onSubmit={handleSubmitResult}>
-                      <div className="form-group">
-                          <label htmlFor="order">Select Order:</label>
-                          {/* Provide a way to *select* the order, even if pre-selected */}
-                          <select 
-                            id="order" 
-                            value={selectedOrderId} 
-                            onChange={(e) => {
-                              const orderId = e.target.value;
-                              setSelectedOrderId(orderId);
-                              
-                              // If we changed orders, get the test type from the new order
-                              if (orderId) {
-                                const testType = getTestTypeFromOrder(orderId);
-                                setSelectedTestType(testType);
-                                
-                                // If we have a template for this test type, apply it
-                                if (TEST_TEMPLATES[testType]) {
-                                  applyTestTemplate(testType);
-                                } else {
-                                  // Clear parameters if we don't have a template
-                                  setTestParameters([]);
-                                }
-                              }
-                            }} 
-                            required 
-                            disabled={pendingOrders.length === 0 && selectedOrderId === ''}
-                          >
-                              <option value="">-- Select a Pending Order --</option>
-                              {pendingOrders.map(order => (
-                                  <option key={order.id} value={order.id}>
-                                      Order {order.id.slice(0, 8)}...: {order.test_type} for Patient {order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : (order._patient_identity_error || 'N/A')} (Ordered by Dr. {order.doctor ? `${order.doctor.first_name} ${order.doctor.last_name}` : (order._doctor_identity_error || 'N/A')})
-                                  </option>
-                              ))}
-                          </select>
-                          {/* Display loading/error state for orders fetch near the select */}
-                          { !loading && pendingOrders.length === 0 && selectedOrderId === '' && !recordingError?.includes('orders list') && <p>No pending orders found.</p>}
-                           {recordingError && recordingError.includes('orders list') && <p className="form-error">{recordingError}</p>}
-                      </div>
-                       {selectedOrderId && ( // Only show result inputs if an order is selected
-                           <>
-                               <div className="form-group">
-                                   <label htmlFor="resultDate">Result Date/Time:</label>
-                                   <input
-                                       type="datetime-local"
-                                       id="resultDate"
-                                       value={resultDate}
-                                       onChange={(e) => setResultDate(e.target.value)}
-                                       required
-                                   />
-                               </div>
-
-                               {/* New Test Template Selection */}
-                               <div className="form-group">
-                                   <label>Test Template:</label>
-                                   <div className="template-buttons">
-                                     {Object.keys(TEST_TEMPLATES).map(template => (
-                                       <button 
-                                         key={template}
-                                         type="button" 
-                                         className={`template-button ${selectedTestType === template ? 'active' : ''}`}
-                                         onClick={() => applyTestTemplate(template)}
-                                       >
-                                         {template}
-                                       </button>
-                                     ))}
-                                   </div>
-                               </div>
-
-                               {/* Test Parameters Section */}
-                               <div className="test-parameters">
-                                   <h5>Test Parameters</h5>
-                                   
-                                   {testParameters.length === 0 ? (
-                                     <p>No parameters added yet. Select a test template or add custom parameters below.</p>
-                                   ) : (
-                                     <div className="parameters-table">
-                                       <table>
-                                         <thead>
-                                           <tr>
-                                             <th>Parameter</th>
-                                             <th>Value</th>
-                                             <th>Unit</th>
-                                             <th>Reference Range</th>
-                                             <th>Actions</th>
-                                           </tr>
-                                         </thead>
-                                         <tbody>
-                                           {testParameters.map((param, index) => (
-                                             <tr key={index}>
-                                               <td>{param.name}</td>
-                                               <td>
-                                                 <input
-                                                   type="text"
-                                                   value={param.value}
-                                                   onChange={(e) => handleParameterChange(index, 'value', e.target.value)}
-                                                   required
-                                                 />
-                                               </td>
-                                               <td>
-                                                 <input
-                                                   type="text"
-                                                   value={param.unit}
-                                                   onChange={(e) => handleParameterChange(index, 'unit', e.target.value)}
-                                                 />
-                                               </td>
-                                               <td>
-                                                 <input
-                                                   type="text"
-                                                   value={param.reference_range}
-                                                   onChange={(e) => handleParameterChange(index, 'reference_range', e.target.value)}
-                                                 />
-                                               </td>
-                                               <td>
-                                                 <button 
-                                                   type="button" 
-                                                   className="remove-button"
-                                                   onClick={() => handleRemoveParameter(index)}
-                                                 >
-                                                   Remove
-                                                 </button>
-                                               </td>
-                                             </tr>
-                                           ))}
-                                         </tbody>
-                                       </table>
-                                     </div>
-                                   )}
-
-                                   {/* Add Custom Parameter Section */}
-                                   <div className="add-custom-parameter">
-                                     <h6>Add Custom Parameter</h6>
-                                     <div className="custom-parameter-form">
-                                       <input
-                                         type="text"
-                                         placeholder="Parameter Name"
-                                         value={customParamName}
-                                         onChange={(e) => setCustomParamName(e.target.value)}
-                                       />
-                                       <button 
-                                         type="button"
-                                         onClick={handleAddCustomParameter}
-                                         disabled={!customParamName.trim()}
-                                       >
-                                         Add Parameter
-                                       </button>
-                                     </div>
-                                   </div>
-                               </div>
-
-                               <div className="form-group">
-                                   <label htmlFor="resultStatus">Status:</label>
-                                    <select id="resultStatus" value={resultStatus} onChange={(e) => setResultStatus(e.target.value)}>
-                                         <option value="final">Final</option>
-                                         <option value="preliminary">Preliminary</option>
-                                         <option value="corrected">Corrected</option>
-                                    </select>
-                               </div>
-                                <div className="form-group">
-                                   <label htmlFor="resultNotes">Notes (Optional):</label>
-                                   <textarea id="resultNotes" value={resultNotes} onChange={(e) => setResultNotes(e.target.value)} rows={3}></textarea>
-                               </div>
-
-                               {recordingError && <div className="form-error">{recordingError}</div>}
-                               {recordingSuccess && <div className="form-success">{recordingSuccess}</div>}
-
-                               <div className="form-actions">
-                                 <button type="submit" disabled={recordingLoading || testParameters.length === 0}>
-                                     {recordingLoading ? 'Saving...' : 'Save Result'}
-                                 </button>
-                                 <button 
-                                   type="button" 
-                                   onClick={() => setIsRecordingResult(false)} 
-                                   disabled={recordingLoading}
-                                   className="danger"
-                                 >
-                                     Cancel
-                                 </button>
-                               </div>
-                           </>
-                       )}
-                  </form>
-              </div>
+      <Content className="p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Lab Tech Profile Card */}
+          {labTechProfile && (
+            <Card title={<><UserOutlined className="mr-2" />Your Profile</>}>
+              <Row gutter={[16, 16]}>
+                <Col span={8}>
+                  <Text strong>Name: </Text>
+                  <Text>{labTechProfile.first_name} {labTechProfile.last_name}</Text>
+                </Col>
+                <Col span={8}>
+                  <Text strong>Username: </Text>
+                  <Text>{labTechProfile.username}</Text>
+                </Col>
+                <Col span={8}>
+                  <Text strong>Employee ID: </Text>
+                  <Text>{labTechProfile.employee_id || 'N/A'}</Text>
+                </Col>
+              </Row>
+              {labTechProfile._identity_error && (
+                <Alert
+                  message="Warning"
+                  description={`Could not load all identity data: ${labTechProfile._identity_error}`}
+                  type="warning"
+                  showIcon
+                  className="mt-4"
+                />
+              )}
+            </Card>
           )}
+
+          {/* Record Result Card */}
+          <Card 
+            title={<><ExperimentOutlined className="mr-2" />Record Lab Result</>}
+            extra={
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={() => handleStartRecordResult()}
+              >
+                Record New Result
+              </Button>
+            }
+          >
+            <Text type="secondary">
+              Record lab test results for pending orders. You can select from predefined test templates or create custom parameters.
+            </Text>
+          </Card>
+
+          {/* Pending Orders Card */}
+          <Card title={<><ClockCircleOutlined className="mr-2" />Pending Lab Orders</>}>
+            {pendingOrders.length > 0 ? (
+              <List
+                dataSource={pendingOrders}
+                renderItem={order => (
+                  <List.Item>
+                    <Card className="w-full shadow-sm border-l-4 border-l-blue-500">
+                      <div className="flex flex-col lg:flex-row lg:justify-between">
+                        <div className="flex-1">
+                          <Title level={5} className="text-blue-600 m-0 mb-2">
+                            {order.test_type}
+                          </Title>
+                          
+                          <Space direction="vertical" size="small" className="w-full">
+                            <div>
+                              <Text strong>Patient: </Text>
+                              <Text>
+                                {order.patient ? 
+                                  `${order.patient.first_name} ${order.patient.last_name}` : 
+                                  (order._patient_identity_error || 'N/A')}
+                              </Text>
+                            </div>
+                            
+                            <div>
+                              <Text strong>Ordered on: </Text>
+                              <Text>{new Date(order.order_date).toLocaleDateString()}</Text>
+                              <Text className="mx-2">by</Text>
+                              <Text strong>Dr. </Text>
+                              <Text>
+                                {order.doctor ? 
+                                  `${order.doctor.first_name} ${order.doctor.last_name}` : 
+                                  (order._doctor_identity_error || 'N/A')}
+                              </Text>
+                            </div>
+                            
+                            <div>
+                              <Tag color="blue">{order.status.toUpperCase()}</Tag>
+                            </div>
+                            
+                            {order.notes && (
+                              <div className="p-3 bg-blue-50 rounded mt-2">
+                                <Text strong>Doctor's Notes: </Text>
+                                <Text italic>{order.notes}</Text>
+                              </div>
+                            )}
+                          </Space>
+                        </div>
+                        
+                        <div className="mt-4 lg:mt-0 lg:ml-4 flex items-start">
+                          <Button
+                            type="primary"
+                            icon={<CheckCircleOutlined />}
+                            onClick={() => handleStartRecordResult(order)}
+                          >
+                            Record Result
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Display errors if present */}
+                      <div className="mt-3 space-y-2">
+                        {order._patient_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Patient identity missing: ${order._patient_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {order._doctor_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Doctor identity missing: ${order._doctor_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {order._order_error && (
+                          <Alert
+                            message="Error"
+                            description={`Error loading order details: ${order._order_error}`}
+                            type="error"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <div className="text-center py-8">
+                <ExperimentOutlined className="text-4xl text-gray-400 mb-4" />
+                <Text type="secondary" className="text-lg">No pending lab orders found.</Text>
+              </div>
+            )}
+          </Card>
+
+          {/* Recorded Results Card */}
+          <Card title={<><CheckCircleOutlined className="mr-2" />Results You Recorded</>}>
+            {recordedResults.length > 0 ? (
+              <List
+                dataSource={recordedResults}
+                renderItem={result => (
+                  <List.Item>
+                    <Card className="w-full shadow-sm border-l-4 border-l-green-500">
+                      <div className="mb-3">
+                        <Title level={5} className="text-green-600 m-0">
+                          Result for Order: {result.order ? result.order.test_type : 'Unknown Test Type'}
+                        </Title>
+                        <Text type="secondary" className="block mt-1">
+                          <Tag color={result.status === 'final' ? 'green' : result.status === 'preliminary' ? 'orange' : 'blue'}>
+                            {result.status.toUpperCase()}
+                          </Tag>
+                          <Text className="ml-2">
+                            {new Date(result.result_date).toLocaleString()}
+                          </Text>
+                        </Text>
+                      </div>
+                      
+                      <div>
+                        <Text>Recorded by Lab Tech </Text>
+                        <Text strong>
+                          {result.lab_technician ? 
+                            `${result.lab_technician.first_name} ${result.lab_technician.last_name}` : 
+                            (result._lab_technician_identity_error || 'N/A')}
+                        </Text>
+                      </div>
+
+                      {/* Use the helper function to format result_data */}
+                      {formatLabResultData(result.result_data, result.order?.test_type)}
+
+                      {result.notes && (
+                        <div className="mt-3 p-3 bg-green-50 rounded">
+                          <Text strong>Notes: </Text>
+                          <Text italic>{result.notes}</Text>
+                        </div>
+                      )}
+
+                      {/* Display errors if present */}
+                      <div className="mt-3 space-y-2">
+                        {result._order_error && (
+                          <Alert
+                            message="Error"
+                            description={`Error loading associated order: ${result._order_error}`}
+                            type="error"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {result.order && result.order._patient_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Patient identity missing for this order: ${result.order._patient_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {result.order && result.order._doctor_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Doctor identity missing for this order: ${result.order._doctor_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                        {result._lab_technician_identity_error && (
+                          <Alert
+                            message="Warning"
+                            description={`Lab Tech identity missing: ${result._lab_technician_identity_error}`}
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                      </div>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <div className="text-center py-8">
+                <Text type="secondary">No results recorded yet.</Text>
+              </div>
+            )}
+          </Card>
         </div>
+      </Content>
 
-      <hr />
-
-      {/* Display Pending Lab Orders */}
-      <div className="pending-orders-section">
-        <h3>Pending Lab Orders</h3>
-        {pendingOrders.length > 0 ? (
-          <ul className="orders-list">
-            {pendingOrders.map(order => (
-              <li key={order.id} className="order-item">
-                <div className="order-header">
-                  <strong>{order.test_type}</strong> for Patient {order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : (order._patient_identity_error || 'N/A')} ({order.status})
-                </div>
-                <p>Ordered on: {new Date(order.order_date).toLocaleDateString()} by Dr. {order.doctor ? `${order.doctor.first_name} ${order.doctor.last_name}` : (order._doctor_identity_error || 'N/A')}</p>
-                {order.notes && <p className="order-notes">Doctor's Notes: {order.notes}</p>}
-                
-                {/* Button to record result for this order */}
-                <div className="order-actions">
-                  <button 
-                    onClick={() => handleStartRecordResult(order.id)} 
-                    className="secondary"
-                  >
-                    Record Result
-                  </button>
-                </div>
-
-                {/* Display individual S2S errors if present */}
-                {order._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing: {order._patient_identity_error}</p>}
-                {order._doctor_identity_error && <p className="warning-indicator">Warning: Doctor identity missing: {order._doctor_identity_error}</p>}
-                {order._order_error && <p className="error-indicator">Error loading order details: {order._order_error}</p>}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          !loading && <p>No pending lab orders found.</p>
-        )}
-      </div>
-
-      <hr />
-
-      {/* Display Results You Recorded */}
-      <div className="recorded-results-section">
-        <h3>Results You Recorded</h3>
-        {recordedResults.length > 0 ? (
-          <ul className="results-list">
-            {recordedResults.map(result => (
-              <li key={result.id} className="result-item">
-                <div className="result-header">
-                  Result for Order: <strong>{result.order ? result.order.test_type : 'Unknown Test Type'}</strong> ({result.status}) on {new Date(result.result_date).toLocaleString()}
-                </div>
-                <p>Recorded by Lab Tech {result.lab_technician ? `${result.lab_technician.first_name} ${result.lab_technician.last_name}` : (result._lab_technician_identity_error || 'N/A')}</p>
-
-                {/* Use the helper function to format result_data */}
-                {formatLabResultData(result.result_data, result.order?.test_type)}
-
-                {result.notes && <p className="result-notes">Notes: {result.notes}</p>}
-
-                {/* Display individual S2S or Order fetch errors */}
-                {result._order_error && <p className="error-indicator">Error loading associated order: {result._order_error}</p>}
-                {result.order && result.order._patient_identity_error && <p className="warning-indicator">Warning: Patient identity missing for this order: {result.order._patient_identity_error}</p>}
-                {result.order && result.order._doctor_identity_error && <p className="warning-indicator">Warning: Doctor identity missing for this order: {result.order._doctor_identity_error}</p>}
-                {result._lab_technician_identity_error && <p className="warning-indicator">Warning: Lab Tech identity missing: {result._lab_technician_identity_error}</p>}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          !loading && <p>No results recorded yet.</p>
-        )}
-      </div>
-
-      <hr />
-
-      {/* Add other lab tech functionalities */}
-      {/* <div>
-        <h3>Other Lab Technician Functions (To Be Implemented)</h3>
-      </div> */}
-
-      <hr />
-
-      <button onClick={logout} className="danger">Logout</button>
-    </div>
+      {/* Record Result Modal */}
+      <Modal
+        title={`Record Lab Result ${selectedOrder ? `for Order ${selectedOrder.id.slice(0, 8)}...` : ''}`}
+        open={isResultModalOpen}
+        onCancel={() => {
+          setIsResultModalOpen(false);
+          resultForm.resetFields();
+          setTestParameters([]);
+          setSelectedOrder(null);
+        }}
+        footer={null}
+        width={800}
+        destroyOnClose
+      >
+        <Form
+          form={resultForm}
+          layout="vertical"
+          onFinish={handleSubmitResult}
+        >
+          <Form.Item 
+            name="lab_order_id" 
+            label="Select Order" 
+            rules={[{ required: true, message: 'Please select an order' }]}
+          >
+            <Select placeholder="Select a pending order" disabled={!!selectedOrder}>
+              {pendingOrders.map(order => (
+                <Option key={order.id} value={order.id}>
+                  Order {order.id.slice(0, 8)}...: {order.test_type} for Patient {order.patient ? 
+                    `${order.patient.first_name} ${order.patient.last_name}` : 
+                    (order._patient_identity_error || 'N/A')}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item 
+                name="result_date" 
+                label="Result Date/Time" 
+                rules={[{ required: true, message: 'Please select result date/time' }]}
+              >
+                <DatePicker 
+                  showTime 
+                  className="w-full" 
+                  format="YYYY-MM-DD HH:mm:ss"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="status" label="Status" initialValue="final">
+                <Select>
+                  <Option value="final">Final</Option>
+                  <Option value="preliminary">Preliminary</Option>
+                  <Option value="corrected">Corrected</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          
+          <Divider>Test Templates</Divider>
+          
+          <div className="mb-4">
+            <Text strong className="block mb-2">Apply Test Template:</Text>
+            <Space wrap>
+              {Object.keys(TEST_TEMPLATES).map(template => (
+                <Button 
+                  key={template}
+                  type={selectedTestType === template ? 'primary' : 'default'}
+                  size="small"
+                  onClick={() => applyTestTemplate(template)}
+                >
+                  {template}
+                </Button>
+              ))}
+            </Space>
+          </div>
+          
+          <Divider>Test Parameters</Divider>
+          
+          {testParameters.length === 0 ? (
+            <Alert
+              message="No parameters added yet"
+              description="Select a test template above or add custom parameters below."
+              type="info"
+              showIcon
+              className="mb-4"
+            />
+          ) : (
+            <div className="mb-4">
+              <Table
+                dataSource={testParameters.map((param, index) => ({ ...param, key: index }))}
+                pagination={false}
+                size="small"
+                columns={[
+                  {
+                    title: 'Parameter',
+                    dataIndex: 'name',
+                    key: 'name',
+                    render: (text) => <Text strong>{text}</Text>
+                  },
+                  {
+                    title: 'Value',
+                    dataIndex: 'value',
+                    key: 'value',
+                    render: (text, record, index) => (
+                      <Input
+                        value={text}
+                        onChange={(e) => handleParameterChange(index, 'value', e.target.value)}
+                        placeholder="Enter value"
+                        size="small"
+                      />
+                    )
+                  },
+                  {
+                    title: 'Unit',
+                    dataIndex: 'unit',
+                    key: 'unit',
+                    render: (text, record, index) => (
+                      <Input
+                        value={text}
+                        onChange={(e) => handleParameterChange(index, 'unit', e.target.value)}
+                        placeholder="Unit"
+                        size="small"
+                      />
+                    )
+                  },
+                  {
+                    title: 'Reference Range',
+                    dataIndex: 'reference_range',
+                    key: 'reference_range',
+                    render: (text, record, index) => (
+                      <Input
+                        value={text}
+                        onChange={(e) => handleParameterChange(index, 'reference_range', e.target.value)}
+                        placeholder="Reference range"
+                        size="small"
+                      />
+                    )
+                  },
+                  {
+                    title: 'Action',
+                    key: 'action',
+                    render: (text, record, index) => (
+                      <Button 
+                        type="text" 
+                        danger 
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleRemoveParameter(index)}
+                        size="small"
+                      />
+                    )
+                  }
+                ]}
+              />
+            </div>
+          )}
+          
+          <div className="mb-4">
+            <Text strong className="block mb-2">Add Custom Parameter:</Text>
+            <Space.Compact className="w-full">
+              <Input
+                placeholder="Parameter Name"
+                value={customParamName}
+                onChange={(e) => setCustomParamName(e.target.value)}
+              />
+              <Button 
+                type="primary"
+                onClick={handleAddCustomParameter}
+                disabled={!customParamName.trim()}
+              >
+                Add Parameter
+              </Button>
+            </Space.Compact>
+          </div>
+          
+          <Form.Item name="notes" label="Notes (Optional)">
+            <TextArea rows={3} placeholder="Additional notes about the test results" />
+          </Form.Item>
+          
+          <Form.Item className="mb-0">
+            <Space className="w-full justify-end">
+              <Button onClick={() => setIsResultModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={resultLoading}
+                disabled={testParameters.length === 0}
+              >
+                Save Result
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Layout>
   );
 };
 
