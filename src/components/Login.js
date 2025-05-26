@@ -1,13 +1,15 @@
-// src/components/Login.js (with class names added)
+// src/components/Login.js
 import React, { useState } from 'react';
+import { Card, Form, Input, Button, Alert, Typography } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useUser } from '../context/UserContext'; 
-import { useNavigate, Navigate } from 'react-router-dom'; 
-import '../css/index.css'; // Import CSS
+import { useNavigate, Navigate } from 'react-router-dom';
+
+const { Title } = Typography;
 
 const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { user, login } = useUser(); 
   const navigate = useNavigate();
@@ -25,8 +27,9 @@ const Login = () => {
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (values) => {
+    const { username, password } = values;
+    setLoading(true);
     setError('');
 
     try {
@@ -65,36 +68,65 @@ const Login = () => {
       } else {
         setError('An unexpected error occurred.');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <h2 className="login-title">Login</h2>
-      <form className="login-form" onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="username">Username:</label>
-          <input
-            type="text"
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
+    <div className="flex justify-center items-center min-h-screen bg-light-gray px-4">
+      <Card className="w-full max-w-md shadow-md">
+        <div className="text-center mb-8">
+          <Title level={2} className="text-primary-dark">Healthcare Management System</Title>
+          <p className="text-dark-gray">Sign in to access your dashboard</p>
         </div>
-        <div>
-          <label htmlFor="password">Password:</label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
+        
+        {error && (
+          <Alert
+            message="Login Error"
+            description={error}
+            type="error"
+            showIcon
+            className="mb-6"
           />
-        </div>
-        {error && <div className="login-error">{error}</div>}
-        <button type="submit">Login</button>
-      </form>
+        )}
+        
+        <Form
+          name="login"
+          initialValues={{ remember: true }}
+          onFinish={handleSubmit}
+          layout="vertical"
+          size="large"
+        >
+          <Form.Item
+            name="username"
+            rules={[{ required: true, message: 'Please input your Username!' }]}
+          >
+            <Input prefix={<UserOutlined className="text-dark-gray" />} placeholder="Username" />
+          </Form.Item>
+          
+          <Form.Item
+            name="password"
+            rules={[{ required: true, message: 'Please input your Password!' }]}
+          >
+            <Input.Password 
+              prefix={<LockOutlined className="text-dark-gray" />}
+              placeholder="Password"
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              className="w-full" 
+              loading={loading}
+            >
+              Log in
+            </Button>
+          </Form.Item>
+        </Form>
+      </Card>
     </div>
   );
 };

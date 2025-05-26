@@ -1,41 +1,43 @@
 // src/context/UserContext.js
-import React, { createContext, useState, useContext, useMemo } from 'react';
+import React, { createContext, useState, useContext, useMemo, useEffect } from 'react';
+import { message } from 'antd';
 
 // Create the Context
-const UserContext = createContext(null); // Default value is null
+const UserContext = createContext(null);
 
 // Create a Provider component
 export const UserProvider = ({ children }) => {
   // State to hold the logged-in user data
-  // Initially null, or maybe check localStorage for persistence
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    // Check if there's user data in localStorage on initial load
+    const savedUser = localStorage.getItem('currentUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
 
-  // You could add login/logout logic here, but for now, setUser directly
-  // is enough.
+  // Login function with persistence
   const login = (userData) => {
     // Store user data in state
     setUser(userData);
-    // Optional: Persist user data (e.g., in localStorage)
-    // localStorage.setItem('currentUser', JSON.stringify(userData));
+    // Persist user data in localStorage
+    localStorage.setItem('currentUser', JSON.stringify(userData));
+    message.success(`Welcome, ${userData.first_name || userData.username}!`);
   };
 
+  // Logout function with cleanup
   const logout = () => {
     // Clear user data from state
     setUser(null);
-    // Optional: Remove persisted data
-    // localStorage.removeItem('currentUser');
+    // Remove persisted data
+    localStorage.removeItem('currentUser');
+    message.info('You have been logged out');
   };
-
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     user,
-    login, // Provide the login function
-    logout, // Provide the logout function
-    // You can also provide the user data directly if you prefer
-    // user: user,
-    // setUser: setUser, // Or expose setUser directly
-  }), [user]); // Re-create context value only when user state changes
+    login,
+    logout,
+  }), [user]);
 
   return (
     <UserContext.Provider value={contextValue}>
@@ -52,6 +54,3 @@ export const useUser = () => {
   }
   return context;
 };
-
-// Export the Context itself if needed elsewhere (less common)
-// export default UserContext;
