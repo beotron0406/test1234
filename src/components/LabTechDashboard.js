@@ -1,12 +1,12 @@
 // src/components/LabTechDashboard.js
 import React, { useState, useEffect } from 'react';
 import {
-  Layout, Typography, Card, Button, Form, Input, 
+  Layout, Typography, Card, Button, Form, Input,
   Alert, Space, List, Select, Modal, Divider,
   Row, Col, Spin, message, InputNumber, DatePicker, Table, Tag
 } from 'antd';
 import {
-  UserOutlined, ExperimentOutlined, PlusOutlined, 
+  UserOutlined, ExperimentOutlined, PlusOutlined,
   ClockCircleOutlined, CheckCircleOutlined, DeleteOutlined
 } from '@ant-design/icons';
 import { useUser } from '../context/UserContext';
@@ -109,10 +109,10 @@ const formatLabResultData = (resultData, testType = 'Unknown Test Type') => {
       <Text strong className="block mb-2">
         {testType.toLowerCase().includes('blood count') ? 'CBC Results:' : 'Test Results:'}
       </Text>
-      <Table 
-        dataSource={dataSource} 
-        columns={columns} 
-        pagination={false} 
+      <Table
+        dataSource={dataSource}
+        columns={columns}
+        pagination={false}
         size="small"
       />
     </div>
@@ -135,7 +135,7 @@ const LabTechDashboard = () => {
   const [resultForm] = Form.useForm();
   const [resultLoading, setResultLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  
+
   // Test parameters state
   const [testParameters, setTestParameters] = useState([]);
   const [customParamName, setCustomParamName] = useState('');
@@ -234,7 +234,7 @@ const LabTechDashboard = () => {
     setTestParameters([]);
     setCustomParamName('');
     setIsResultModalOpen(true);
-    
+
     resultForm.setFieldsValue({
       lab_order_id: order?.id || '',
       result_date: dayjs(),
@@ -244,7 +244,7 @@ const LabTechDashboard = () => {
     if (order) {
       const testType = order.test_type;
       setSelectedTestType(testType);
-      
+
       // If we have a template for this test type, apply it
       if (TEST_TEMPLATES[testType]) {
         applyTestTemplate(testType);
@@ -296,7 +296,7 @@ const LabTechDashboard = () => {
 
       if (response.status === 201) {
         message.success('Lab result recorded successfully!');
-        
+
         // Refetch pending orders and recorded results
         const ordersResponse = await axios.get(`${SERVICE_URLS.lab}/orders/`, {
           params: { status: 'ordered' }
@@ -310,7 +310,7 @@ const LabTechDashboard = () => {
           params: { lab_technician_user_id: labTechUserId }
         });
         setRecordedResults(resultsResponse.data);
-        
+
         setIsResultModalOpen(false);
         resultForm.resetFields();
         setTestParameters([]);
@@ -366,12 +366,17 @@ const LabTechDashboard = () => {
 
   return (
     <Layout className="min-h-screen bg-gray-50">
-      <Header className="bg-teal-600 flex items-center justify-between px-6">
-        <Title level={3} className="text-white m-0">
-          Healthcare Management System - Lab Technician
-        </Title>
-        <Button danger onClick={logout}>Logout</Button>
+      <Header className="bg-blue-600 flex items-center justify-between px-4">
+        <div>
+          <Title level={3} className="text-white m-0">
+            Healthcare Management System - Admin
+          </Title>
+        </div>
+        <div>
+          <Button onClick={logout}>Logout</Button>
+        </div>
       </Header>
+
 
       <Content className="p-6">
         <div className="max-w-7xl mx-auto space-y-6">
@@ -405,11 +410,11 @@ const LabTechDashboard = () => {
           )}
 
           {/* Record Result Card */}
-          <Card 
+          <Card
             title={<><ExperimentOutlined className="mr-2" />Record Lab Result</>}
             extra={
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => handleStartRecordResult()}
               >
@@ -435,33 +440,33 @@ const LabTechDashboard = () => {
                           <Title level={5} className="text-blue-600 m-0 mb-2">
                             {order.test_type}
                           </Title>
-                          
+
                           <Space direction="vertical" size="small" className="w-full">
                             <div>
                               <Text strong>Patient: </Text>
                               <Text>
-                                {order.patient ? 
-                                  `${order.patient.first_name} ${order.patient.last_name}` : 
+                                {order.patient ?
+                                  `${order.patient.first_name} ${order.patient.last_name}` :
                                   (order._patient_identity_error || 'N/A')}
                               </Text>
                             </div>
-                            
+
                             <div>
                               <Text strong>Ordered on: </Text>
                               <Text>{new Date(order.order_date).toLocaleDateString()}</Text>
                               <Text className="mx-2">by</Text>
                               <Text strong>Dr. </Text>
                               <Text>
-                                {order.doctor ? 
-                                  `${order.doctor.first_name} ${order.doctor.last_name}` : 
+                                {order.doctor ?
+                                  `${order.doctor.first_name} ${order.doctor.last_name}` :
                                   (order._doctor_identity_error || 'N/A')}
                               </Text>
                             </div>
-                            
+
                             <div>
                               <Tag color="blue">{order.status.toUpperCase()}</Tag>
                             </div>
-                            
+
                             {order.notes && (
                               <div className="p-3 bg-blue-50 rounded mt-2">
                                 <Text strong>Doctor's Notes: </Text>
@@ -470,7 +475,7 @@ const LabTechDashboard = () => {
                             )}
                           </Space>
                         </div>
-                        
+
                         <div className="mt-4 lg:mt-0 lg:ml-4 flex items-start">
                           <Button
                             type="primary"
@@ -481,7 +486,7 @@ const LabTechDashboard = () => {
                           </Button>
                         </div>
                       </div>
-                      
+
                       {/* Display errors if present */}
                       <div className="mt-3 space-y-2">
                         {order._patient_identity_error && (
@@ -545,12 +550,12 @@ const LabTechDashboard = () => {
                           </Text>
                         </Text>
                       </div>
-                      
+
                       <div>
                         <Text>Recorded by Lab Tech </Text>
                         <Text strong>
-                          {result.lab_technician ? 
-                            `${result.lab_technician.first_name} ${result.lab_technician.last_name}` : 
+                          {result.lab_technician ?
+                            `${result.lab_technician.first_name} ${result.lab_technician.last_name}` :
                             (result._lab_technician_identity_error || 'N/A')}
                         </Text>
                       </div>
@@ -636,32 +641,32 @@ const LabTechDashboard = () => {
           layout="vertical"
           onFinish={handleSubmitResult}
         >
-          <Form.Item 
-            name="lab_order_id" 
-            label="Select Order" 
+          <Form.Item
+            name="lab_order_id"
+            label="Select Order"
             rules={[{ required: true, message: 'Please select an order' }]}
           >
             <Select placeholder="Select a pending order" disabled={!!selectedOrder}>
               {pendingOrders.map(order => (
                 <Option key={order.id} value={order.id}>
-                  Order {order.id.slice(0, 8)}...: {order.test_type} for Patient {order.patient ? 
-                    `${order.patient.first_name} ${order.patient.last_name}` : 
+                  Order {order.id.slice(0, 8)}...: {order.test_type} for Patient {order.patient ?
+                    `${order.patient.first_name} ${order.patient.last_name}` :
                     (order._patient_identity_error || 'N/A')}
                 </Option>
               ))}
             </Select>
           </Form.Item>
-          
+
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item 
-                name="result_date" 
-                label="Result Date/Time" 
+              <Form.Item
+                name="result_date"
+                label="Result Date/Time"
                 rules={[{ required: true, message: 'Please select result date/time' }]}
               >
-                <DatePicker 
-                  showTime 
-                  className="w-full" 
+                <DatePicker
+                  showTime
+                  className="w-full"
                   format="YYYY-MM-DD HH:mm:ss"
                 />
               </Form.Item>
@@ -676,14 +681,14 @@ const LabTechDashboard = () => {
               </Form.Item>
             </Col>
           </Row>
-          
+
           <Divider>Test Templates</Divider>
-          
+
           <div className="mb-4">
             <Text strong className="block mb-2">Apply Test Template:</Text>
             <Space wrap>
               {Object.keys(TEST_TEMPLATES).map(template => (
-                <Button 
+                <Button
                   key={template}
                   type={selectedTestType === template ? 'primary' : 'default'}
                   size="small"
@@ -694,9 +699,9 @@ const LabTechDashboard = () => {
               ))}
             </Space>
           </div>
-          
+
           <Divider>Test Parameters</Divider>
-          
+
           {testParameters.length === 0 ? (
             <Alert
               message="No parameters added yet"
@@ -761,9 +766,9 @@ const LabTechDashboard = () => {
                     title: 'Action',
                     key: 'action',
                     render: (text, record, index) => (
-                      <Button 
-                        type="text" 
-                        danger 
+                      <Button
+                        type="text"
+                        danger
                         icon={<DeleteOutlined />}
                         onClick={() => handleRemoveParameter(index)}
                         size="small"
@@ -774,7 +779,7 @@ const LabTechDashboard = () => {
               />
             </div>
           )}
-          
+
           <div className="mb-4">
             <Text strong className="block mb-2">Add Custom Parameter:</Text>
             <Space.Compact className="w-full">
@@ -783,7 +788,7 @@ const LabTechDashboard = () => {
                 value={customParamName}
                 onChange={(e) => setCustomParamName(e.target.value)}
               />
-              <Button 
+              <Button
                 type="primary"
                 onClick={handleAddCustomParameter}
                 disabled={!customParamName.trim()}
@@ -792,19 +797,19 @@ const LabTechDashboard = () => {
               </Button>
             </Space.Compact>
           </div>
-          
+
           <Form.Item name="notes" label="Notes (Optional)">
             <TextArea rows={3} placeholder="Additional notes about the test results" />
           </Form.Item>
-          
+
           <Form.Item className="mb-0">
             <Space className="w-full justify-end">
               <Button onClick={() => setIsResultModalOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
+              <Button
+                type="primary"
+                htmlType="submit"
                 loading={resultLoading}
                 disabled={testParameters.length === 0}
               >

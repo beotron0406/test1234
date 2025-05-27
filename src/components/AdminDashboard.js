@@ -1,9 +1,9 @@
 // src/components/AdminDashboard.js
 import React, { useState, useEffect } from 'react';
 import {
-  Layout, Typography, Card, Button, Form, Input, Select, 
+  Layout, Typography, Card, Button, Form, Input, Select,
   Alert, Space, List, Avatar, Tag, Modal, Divider,
-  Row, Col, Spin, message
+  Row, Col, Spin, message, Switch
 } from 'antd';
 import {
   UserOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
@@ -45,6 +45,12 @@ const AdminDashboard = () => {
   const [createUserForm] = Form.useForm();
   const [createUserLoading, setCreateUserLoading] = useState(false);
   const [selectedUserType, setSelectedUserType] = useState('patient');
+
+  // State for editing user functionality
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editUserForm] = Form.useForm();
+  const [editUserLoading, setEditUserLoading] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
   // Available user types
   const USER_TYPES = [
@@ -185,17 +191,17 @@ const AdminDashboard = () => {
 
       if (response.status === 201) {
         const userId = response.data.id;
-        
+
         // Step 2: Create service-specific profile
         const serviceResult = await createUserServiceProfile(userId, userType, userData);
 
         if (serviceResult.success) {
           message.success(`User "${userData.username}" created successfully!`);
-          
+
           // Refetch users list
           const usersResponse = await axios.get(`${SERVICE_URLS.admin}/users/`);
           setAllUsers(usersResponse.data);
-          
+
           setIsCreateModalOpen(false);
           createUserForm.resetFields();
         } else {
@@ -220,6 +226,79 @@ const AdminDashboard = () => {
     }
   };
 
+  // Handle Edit User
+  const handleEditUser = async (userId) => {
+    try {
+      // Fetch user details from identity service
+      const response = await axios.get(`${SERVICE_URLS.identity}/users/${userId}/`);
+      const userData = response.data;
+      
+      setEditingUser(userData);
+      
+      // Populate the edit form with current user data
+      editUserForm.setFieldsValue({
+        username: userData.username,
+        email: userData.email,
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        user_type: userData.user_type,
+        is_active: userData.is_active
+      });
+      
+      setIsEditModalOpen(true);
+    } catch (err) {
+      console.error('Error fetching user details:', err);
+      message.error('Failed to load user details for editing.');
+    }
+  };
+
+  // Handle Submit Edit User
+  const handleSubmitEditUser = async (values) => {
+    setEditUserLoading(true);
+
+    try {
+      // Update user via identity service
+      const response = await axios.patch(`${SERVICE_URLS.identity}/users/${editingUser.id}/`, {
+        username: values.username,
+        email: values.email,
+        first_name: values.first_name,
+        last_name: values.last_name,
+        user_type: values.user_type,
+        is_active: values.is_active
+      });
+
+      if (response.status === 200) {
+        message.success(`User "${values.username}" updated successfully!`);
+
+        // Refetch users list
+        const usersResponse = await axios.get(`${SERVICE_URLS.admin}/users/`);
+        setAllUsers(usersResponse.data);
+
+        setIsEditModalOpen(false);
+        editUserForm.resetFields();
+        setEditingUser(null);
+      }
+    } catch (err) {
+      console.error('User update failed:', err);
+      if (err.response && err.response.data) {
+        // Handle validation errors
+        if (err.response.data.username) {
+          message.error(`Update failed: Username ${err.response.data.username[0]}`);
+        } else if (err.response.data.email) {
+          message.error(`Update failed: Email ${err.response.data.email[0]}`);
+        } else if (err.response.data.error) {
+          message.error(`Update failed: ${err.response.data.error}`);
+        } else {
+          message.error('Failed to update user. Please check your input.');
+        }
+      } else {
+        message.error('Failed to update user. Please try again.');
+      }
+    } finally {
+      setEditUserLoading(false);
+    }
+  };
+
   // Handle Delete User
   const handleDeleteUser = (userId, username) => {
     confirm({
@@ -235,7 +314,7 @@ const AdminDashboard = () => {
 
           if (response.status === 200 || response.status === 204) {
             message.success(`User ${username} deleted successfully!`);
-            
+
             // Refetch users list
             const usersResponse = await axios.get(`${SERVICE_URLS.admin}/users/`);
             setAllUsers(usersResponse.data);
@@ -252,7 +331,7 @@ const AdminDashboard = () => {
     });
   };
 
-  // Render user type specific fields
+  // Render user type specific fields for create form
   const renderUserTypeFields = () => {
     switch (selectedUserType) {
       case 'patient':
@@ -410,11 +489,11 @@ const AdminDashboard = () => {
           )}
 
           {/* Users Management Card */}
-          <Card 
+          <Card
             title={<><UserOutlined className="mr-2" />All Users</>}
             extra={
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => setIsCreateModalOpen(true)}
               >
@@ -428,16 +507,16 @@ const AdminDashboard = () => {
                 renderItem={userItem => (
                   <List.Item
                     actions={[
-                      <Button 
-                        type="text" 
-                        icon={<EditOutlined />} 
-                        onClick={() => message.info('Edit functionality to be implemented')}
+                      <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        onClick={() => handleEditUser(userItem.id)}
                       >
                         Edit
                       </Button>,
-                      <Button 
-                        type="text" 
-                        danger 
+                      <Button
+                        type="text"
+                        danger
                         icon={<DeleteOutlined />}
                         onClick={() => handleDeleteUser(userItem.id, userItem.username)}
                       >
@@ -451,6 +530,9 @@ const AdminDashboard = () => {
                         <Space>
                           <Text strong>{userItem.username}</Text>
                           <Tag color="blue">{userItem.user_type.replace('_', ' ').toUpperCase()}</Tag>
+                          {userItem.is_active === false && (
+                            <Tag color="red">INACTIVE</Tag>
+                          )}
                         </Space>
                       }
                       description={
@@ -506,21 +588,21 @@ const AdminDashboard = () => {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item 
-                name="username" 
-                label="Username" 
+              <Form.Item
+                name="username"
+                label="Username"
                 rules={[{ required: true, message: 'Username is required' }]}
               >
                 <Input placeholder="Username" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item 
-                name="password" 
-                label="Password" 
+              <Form.Item
+                name="password"
+                label="Password"
                 rules={[{ required: true, message: 'Password is required' }]}
               >
-                <Input placeholder="Password" />
+                <Input.Password placeholder="Password" />
               </Form.Item>
             </Col>
           </Row>
@@ -542,9 +624,9 @@ const AdminDashboard = () => {
             <Input placeholder="Email Address" type="email" />
           </Form.Item>
 
-          <Form.Item 
-            name="userType" 
-            label="User Type" 
+          <Form.Item
+            name="userType"
+            label="User Type"
             rules={[{ required: true, message: 'Please select a user type' }]}
             initialValue="patient"
           >
@@ -568,6 +650,107 @@ const AdminDashboard = () => {
               </Button>
               <Button type="primary" htmlType="submit" loading={createUserLoading}>
                 Create User
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        title={`Edit User: ${editingUser?.username || ''}`}
+        open={isEditModalOpen}
+        onCancel={() => {
+          setIsEditModalOpen(false);
+          editUserForm.resetFields();
+          setEditingUser(null);
+        }}
+        footer={null}
+        width={600}
+      >
+        <Form
+          form={editUserForm}
+          layout="vertical"
+          onFinish={handleSubmitEditUser}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="username"
+                label="Username"
+                rules={[{ required: true, message: 'Username is required' }]}
+              >
+                <Input placeholder="Username" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="email" label="Email">
+                <Input placeholder="Email Address" type="email" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="first_name" label="First Name">
+                <Input placeholder="First Name" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="last_name" label="Last Name">
+                <Input placeholder="Last Name" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="user_type"
+                label="User Type"
+                rules={[{ required: true, message: 'Please select a user type' }]}
+              >
+                <Select placeholder="Select User Type">
+                  {USER_TYPES.map(type => (
+                    <Option key={type.value} value={type.value}>
+                      {type.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="is_active" label="Account Status" valuePropName="checked">
+                <Switch 
+                  checkedChildren="Active" 
+                  unCheckedChildren="Inactive" 
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {editingUser && (
+            <Alert
+              message="User Information"
+              description={
+                <div>
+                  <Text>User ID: {editingUser.id}</Text><br />
+                  <Text>Date Joined: {new Date(editingUser.date_joined).toLocaleString()}</Text><br />
+                  <Text>Last Login: {editingUser.last_login ? new Date(editingUser.last_login).toLocaleString() : 'Never'}</Text>
+                </div>
+              }
+              type="info"
+              className="mb-4"
+            />
+          )}
+
+          <Form.Item className="mb-0">
+            <Space className="w-full justify-end">
+              <Button onClick={() => setIsEditModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="primary" htmlType="submit" loading={editUserLoading}>
+                Update User
               </Button>
             </Space>
           </Form.Item>

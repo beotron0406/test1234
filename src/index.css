@@ -259,8 +259,11 @@
 /* Ant Design component overrides */
 .ant-layout-header {
   height: 64px !important;
-  line-height: 64px !important;
+  line-height: normal !important;  /* Thay đổi từ 64px thành normal */
   padding: 0 24px !important;
+  display: flex !important;        /* Thêm */
+  align-items: center !important;  /* Thêm */
+  justify-content: space-between !important; /* Thêm */
 }
 
 .ant-card {
